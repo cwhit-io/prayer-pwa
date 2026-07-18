@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-07-18: Added a dependency-free UX agent script and documentation for scripted persona-based site audits.
 - 2026-07-18: Fixed standalone deployment asset serving by copying `public/` and `.next/static/` into `.next/standalone` before service startup.
 - 2026-07-18: PRAY page now emphasizes a large primary Start Prayer timer button and makes the ACTS guide an optional collapsible support section.
 - 2026-07-17: Added production Dockerfile, `.dockerignore`, standalone Next output, and GitHub Actions container workflow for GHCR image builds/pushes.

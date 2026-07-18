@@ -10,6 +10,7 @@ This repository uses a simple documentation-first workflow so future agents can 
 - Keep entries short, specific, and dated when possible.
 - Do not leave implementation work without a tracker update.
 - If the stack changes, update both `plan-tracker.md` and `README.md` so the repo stays honest.
+- Run `npm run ux:audit` after meaningful user-flow changes when practical, then scan `ux-reports/latest.md` for obvious friction.
 - **Always rebuild and deploy after user-visible changes** so they can be seen on fortwayneprays.org without asking: `npm run build` then `systemctl --user restart prayer-pwa`. Smoke-check local `:3000` and the public domain when practical.
 
 ## Suggested Update Pattern

@@ -8,3 +8,5 @@ build/
 .DS_Store
 coverage/
 tsconfig.tsbuildinfo
+ux-reports/*.md
+!ux-reports/.gitkeep

@@ -54,6 +54,7 @@
 - [x] Phase 7 event hooks + member email opt-in for prayer request updates
 - [x] GitHub container workflow: build/test on PRs and publish GHCR image on main/tags
 - [x] PRAY page: primary Start Prayer timer CTA with optional guided ACTS section
+- [x] UX agent: scripted persona walkthrough reports via `npm run ux:audit`
 - [ ] Phase 7 scheduled/cron dispatch for daily/weekly types
 - [ ] Series content / campaign-week prompts
 - [ ] Light reporting (CSV export)

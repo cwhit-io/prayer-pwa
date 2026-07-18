@@ -401,7 +401,7 @@ export function ActsGuide({
   const [pausedByTab, setPausedByTab] = useState(false);
   const [isSaving, startSaveTransition] = useTransition();
   const [isMarkingPrayed, setIsMarkingPrayed] = useState(false);
-  const [guideOpen, setGuideOpen] = useState(Boolean(focus));
+  const [guideOpen, setGuideOpen] = useState(false);
   const { elapsedSeconds, resetElapsed } = useSessionClock(sessionActive, isRunning);
   const elapsedRef = useRef(0);
   const isRunningRef = useRef(false);

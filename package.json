@@ -7,7 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "ux:audit": "node scripts/ux-agent.mjs"
   },
   "dependencies": {
     "next": "15.4.0",

@@ -8,6 +8,7 @@ Progressive Web App for **Fort Wayne Prays** (FortWaynePrays.org) — Blackhawk 
 - [Tracker](./tracker.md)
 - [Changelog](./changelog.md)
 - [Agent Guide](./agent.md)
+- [UX Agent](./ux-agent.md)
 
 ## Current Status
 
