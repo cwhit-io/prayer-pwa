@@ -62,6 +62,36 @@ ux-reports/screenshots/<timestamp>/
 
 Generated reports and screenshots are intentionally ignored by Git so agents can run audits freely.
 
+### Signed-In Audits
+
+For localhost audits, the browser agent tries the normal email/phone login UI first. If the code is delivered externally
+and no local test code is visible, it creates a local audit session directly in Postgres so it can keep navigating as a
+signed-in user.
+
+Default audit identity:
+
+```text
+ux-agent@blackhawkministries.org
+```
+
+Override the identity when needed:
+
+```bash
+UX_LOGIN_CONTACT=test@example.com UX_LOGIN_NAME="Test User" npm run ux:browser
+```
+
+If you are auditing a production-like site where the code is available out-of-band, pass it explicitly:
+
+```bash
+UX_LOGIN_CODE=123456 npm run ux:browser -- https://fortwayneprays.org
+```
+
+Disable direct local database login:
+
+```bash
+UX_DISABLE_DB_LOGIN=1 npm run ux:browser
+```
+
 ## Current Personas
 
 - First-time visitor

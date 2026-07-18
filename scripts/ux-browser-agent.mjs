@@ -1,12 +1,22 @@
 #!/usr/bin/env node
 
+import crypto from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { chromium } from "@playwright/test";
+import { Client } from "pg";
+
+loadEnvFile(".env.local");
 
 const DEFAULT_BASE_URL = process.env.UX_BASE_URL || "http://localhost:3000";
 const OUTPUT_DIR = process.env.UX_REPORT_DIR || "ux-reports";
-const WAIT_UNTIL = "networkidle";
+const WAIT_UNTIL = "domcontentloaded";
+const LOGIN_CONTACT = process.env.UX_LOGIN_CONTACT || "ux-agent@blackhawkministries.org";
+const LOGIN_NAME = process.env.UX_LOGIN_NAME || "UX Audit Agent";
+const LOGIN_CODE = process.env.UX_LOGIN_CODE || "";
+const DISABLE_DB_LOGIN = process.env.UX_DISABLE_DB_LOGIN === "1";
+const SESSION_COOKIE_NAME = "prayer_session";
 
 const viewports = [
   {
@@ -37,8 +47,20 @@ const journeys = [
     ]
   },
   {
+    id: "login",
+    persona: "A returning participant signing in through a shared household contact method.",
+    goal: "Authorize by email or phone, then land on a recognizable personal profile.",
+    requiresFreshSession: true,
+    steps: [
+      { label: "Login Start", path: "/auth" },
+      { label: "Request Code", action: "loginContact" },
+      { label: "Verify Code", action: "verifyDebugCode" },
+      { label: "Choose Or Create Profile", action: "finishAccount", optional: true }
+    ]
+  },
+  {
     id: "start-praying",
-    persona: "A church member with two free minutes who wants to start praying immediately.",
+    persona: "A signed-in church member with two free minutes who wants to start praying immediately.",
     goal: "Find and use the prayer timer without feeling forced into a guided flow.",
     steps: [
       { label: "Pray Page", path: "/log" },
@@ -48,15 +70,27 @@ const journeys = [
   },
   {
     id: "identity-linking",
-    persona: "A returning participant trying to sign in and link themselves to the right household member.",
-    goal: "See whether login language explains email/phone authorization and household member selection.",
+    persona: "A signed-in participant checking whether their profile feels personal and understandable.",
+    goal: "See name, profile context, pledge, prayer people, and account actions.",
     steps: [{ label: "Login", path: "/auth" }]
   },
   {
     id: "personal-dashboard",
-    persona: "A committed participant checking progress and looking for what to pray next.",
+    persona: "A signed-in committed participant checking progress and looking for what to pray next.",
     goal: "Understand church progress, personal progress, recent activity, and prayer prompts.",
     steps: [{ label: "Dashboard", path: "/dashboard" }]
+  },
+  {
+    id: "signed-in-explore",
+    persona: "A signed-in participant exploring the campaign features after logging in.",
+    goal: "Navigate prompts, requests, prayer logging, and admin surfaces without getting lost.",
+    steps: [
+      { label: "Prompts", path: "/prompts" },
+      { label: "Community Requests", path: "/requests" },
+      { label: "My Requests", path: "/requests/mine" },
+      { label: "Prayer Timer", path: "/log" },
+      { label: "Admin", path: "/admin", optional: true }
+    ]
   }
 ];
 
@@ -77,6 +111,36 @@ function safeName(value) {
 
 function cleanText(value) {
   return value.replace(/\s+/g, " ").trim();
+}
+
+function loadEnvFile(path) {
+  if (!existsSync(path)) return;
+
+  const contents = readFileSync(path, "utf8");
+  for (const line of contents.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#") || !trimmed.includes("=")) continue;
+
+    const separator = trimmed.indexOf("=");
+    const key = trimmed.slice(0, separator).trim();
+    const value = trimmed
+      .slice(separator + 1)
+      .trim()
+      .replace(/^['"]|['"]$/g, "");
+
+    if (key && process.env[key] === undefined) {
+      process.env[key] = value;
+    }
+  }
+}
+
+function isLocalUrl(baseUrl) {
+  const { hostname } = new URL(baseUrl);
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+}
+
+function roleForAuditEmail(email) {
+  return email.toLowerCase().endsWith("@blackhawkministries.org") ? "admin" : "member";
 }
 
 async function collectVisibleText(locator, limit = 12) {
@@ -126,6 +190,187 @@ async function clickByText(page, text, optional = false) {
   }
 }
 
+async function clickButtonByText(page, text, optional = false) {
+  const target = page.getByRole("button", { name: new RegExp(text, "i") }).first();
+
+  try {
+    await target.waitFor({ state: "visible", timeout: 3500 });
+    await target.click({ timeout: 3500 });
+    await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+    return { ok: true, note: `Clicked button matching "${text}".` };
+  } catch (error) {
+    return {
+      ok: optional,
+      note: optional
+        ? `Optional button "${text}" was not available.`
+        : `Could not click button "${text}": ${error.message}`
+    };
+  }
+}
+
+async function requestLoginCode(page) {
+  try {
+    const contactField = page.locator('input[name="contact"]').first();
+    await contactField.waitFor({ state: "visible", timeout: 5000 });
+    await contactField.fill(LOGIN_CONTACT);
+    await clickButtonByText(page, "send code");
+    await page.waitForURL(/\/auth\?challenge=/, { timeout: 10000 }).catch(() => {});
+
+    return {
+      ok: true,
+      note: `Requested a login code for ${LOGIN_CONTACT}.`
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      note: `Could not request login code: ${error.message}`
+    };
+  }
+}
+
+async function verifyLoginCode(page) {
+  try {
+    const bodyText = cleanText((await page.locator("body").innerText().catch(() => "")) || "");
+    const debugMatch = bodyText.match(/Local test code:\s*(\d{6})/i);
+    const code = LOGIN_CODE || debugMatch?.[1] || "";
+
+    if (!code) {
+      return {
+        ok: false,
+        note:
+          "No local test code was visible. Set UX_LOGIN_CODE for production-like environments where the code is delivered externally."
+      };
+    }
+
+    const codeField = page.locator('input[name="code"]').first();
+    await codeField.waitFor({ state: "visible", timeout: 5000 });
+    await codeField.fill(code);
+    await clickButtonByText(page, "verify code");
+    await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+
+    return {
+      ok: true,
+      note: LOGIN_CODE ? "Verified login with UX_LOGIN_CODE." : "Verified login with the visible local test code."
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      note: `Could not verify login code: ${error.message}`
+    };
+  }
+}
+
+async function finishAccount(page) {
+  try {
+    if (/welcome,/i.test(await page.locator("body").innerText().catch(() => ""))) {
+      return { ok: true, note: "Already signed in after code verification." };
+    }
+
+    const firstPersonRadio = page.locator('input[name="person_id"]').first();
+    if (await firstPersonRadio.isVisible().catch(() => false)) {
+      await firstPersonRadio.check();
+      await clickButtonByText(page, "continue as selected person");
+      return { ok: true, note: "Selected the first household/person candidate." };
+    }
+
+    const nameField = page.locator('input[name="name"]').first();
+    if (await nameField.isVisible().catch(() => false)) {
+      await nameField.fill(LOGIN_NAME);
+      await clickButtonByText(page, "create account");
+      return { ok: true, note: `Created or reused the audit profile "${LOGIN_NAME}".` };
+    }
+
+    return {
+      ok: true,
+      note: "No profile selection or account creation step was needed."
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      note: `Could not finish account setup: ${error.message}`
+    };
+  }
+}
+
+async function isSignedIn(page) {
+  const text = cleanText((await page.locator("body").innerText().catch(() => "")) || "");
+  return /welcome,/i.test(text) || /sign out/i.test(text);
+}
+
+async function createLocalAuditSession({ context, baseUrl }) {
+  if (DISABLE_DB_LOGIN || !isLocalUrl(baseUrl)) {
+    return {
+      ok: false,
+      note: "Direct audit login is disabled outside localhost unless UX_DISABLE_DB_LOGIN is unset and the target is local."
+    };
+  }
+
+  if (!process.env.DATABASE_URL) {
+    return {
+      ok: false,
+      note: "Direct audit login could not run because DATABASE_URL is not set."
+    };
+  }
+
+  const token = crypto.randomUUID();
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
+  const role = roleForAuditEmail(LOGIN_CONTACT);
+  const client = new Client({
+    connectionString: process.env.DATABASE_URL,
+    connectionTimeoutMillis: 5000
+  });
+
+  try {
+    await client.connect();
+    const userResult = await client.query(
+      `insert into app_users (name, email, role)
+       values ($1, $2, $3)
+       on conflict (email) do update
+       set name = excluded.name,
+           role = case when excluded.role = 'admin' then 'admin' else app_users.role end
+       returning id`,
+      [LOGIN_NAME, LOGIN_CONTACT.toLowerCase(), role]
+    );
+    const userId = userResult.rows[0]?.id;
+
+    if (!userId) {
+      return { ok: false, note: "Direct audit login could not create or find an audit user." };
+    }
+
+    await client.query(
+      `insert into auth_sessions (token, user_id, expires_at)
+       values ($1, $2, $3)
+       on conflict (token) do update
+       set user_id = excluded.user_id,
+           expires_at = excluded.expires_at`,
+      [token, userId, expiresAt]
+    );
+
+    await context.addCookies([
+      {
+        name: SESSION_COOKIE_NAME,
+        value: token,
+        url: new URL("/", baseUrl).toString(),
+        httpOnly: true,
+        sameSite: "Lax",
+        expires: Math.floor(expiresAt.getTime() / 1000)
+      }
+    ]);
+
+    return {
+      ok: true,
+      note: `Created a local ${role} audit session for ${LOGIN_CONTACT}.`
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      note: `Direct audit login failed: ${error.message}`
+    };
+  } finally {
+    await client.end().catch(() => {});
+  }
+}
+
 function inspectExperience({ journey, step, pageData, failures, consoleErrors, actionResult }) {
   const notes = [];
   const lower = pageData.bodyText.toLowerCase();
@@ -164,11 +409,38 @@ function inspectExperience({ journey, step, pageData, failures, consoleErrors, a
   }
 
   if (journey.id === "identity-linking") {
-    if (lower.includes("email") || lower.includes("phone")) {
-      notes.push("Login mentions email or phone, which matches the Planning Center authorization model.");
+    if (lower.includes("welcome,")) {
+      notes.push("The signed-in profile greets the participant by name.");
+    }
+    if (lower.includes("pledge")) {
+      notes.push("The signed-in profile exposes pledge/progress context.");
     }
     if (lower.includes("household")) {
-      notes.push("Household language is visible, helping explain shared-contact login.");
+      notes.push("Household language is visible, helping explain Planning Center-linked prayer people.");
+    }
+  }
+
+  if (journey.id === "login") {
+    if (lower.includes("email") || lower.includes("phone")) {
+      notes.push("Login mentions email or phone, which matches the shared-contact authorization model.");
+    }
+    if (lower.includes("local test code")) {
+      notes.push("A local test code is visible, so the browser agent can complete sign-in without inbox access.");
+    }
+    if (lower.includes("code sent") && !lower.includes("local test code")) {
+      notes.push("The code was sent externally, so the agent needs UX_LOGIN_CODE or local DB session fallback.");
+    }
+    if (lower.includes("welcome,")) {
+      notes.push("The login journey reached a signed-in profile.");
+    }
+  }
+
+  if (journey.id === "signed-in-explore") {
+    if (lower.includes("sign in to view")) {
+      notes.push("This signed-in journey still encountered a sign-in gate.");
+    }
+    if (step.path === "/admin" && lower.includes("admin")) {
+      notes.push("The audit identity can reach the admin surface.");
     }
   }
 
@@ -186,13 +458,17 @@ function scoreStep({ status, failures, consoleErrors, notes }) {
   if (failures.length > 0) score -= 0.5;
   if (consoleErrors.length > 0) score -= 0.5;
   if (notes.some((note) => note.startsWith("Could not click"))) score -= 1.5;
+  if (notes.some((note) => note.startsWith("Could not request") || note.startsWith("Could not verify"))) score -= 2;
+  if (notes.some((note) => note.includes("sent externally"))) score -= 1;
+  if (notes.some((note) => note.startsWith("No local test code"))) score -= 1.5;
+  if (notes.some((note) => note.includes("still encountered a sign-in gate"))) score -= 1.5;
   if (notes.some((note) => note.includes("not strongly") || note.includes("may not"))) score -= 0.75;
   if (notes.some((note) => note.includes("visible") || note.includes("optional"))) score += 0.25;
 
   return Math.max(1, Math.min(5, score));
 }
 
-async function captureStep({ page, baseUrl, journey, step, viewport, screenshotDir }) {
+async function captureStep({ context, page, baseUrl, journey, step, viewport, screenshotDir }) {
   const requestFailures = [];
   const consoleErrors = [];
 
@@ -213,6 +489,8 @@ async function captureStep({ page, baseUrl, journey, step, viewport, screenshotD
   let actionResult = null;
   let response = null;
 
+  console.log(`[${viewport.id}] ${journey.id}: ${step.label}`);
+
   if (step.path) {
     response = await page.goto(absoluteUrl(baseUrl, step.path), {
       waitUntil: WAIT_UNTIL,
@@ -222,6 +500,26 @@ async function captureStep({ page, baseUrl, journey, step, viewport, screenshotD
 
   if (step.action === "clickText") {
     actionResult = await clickByText(page, step.text, step.optional);
+  }
+
+  if (step.action === "loginContact") {
+    actionResult = await requestLoginCode(page);
+  }
+
+  if (step.action === "verifyDebugCode") {
+    actionResult = await verifyLoginCode(page);
+  }
+
+  if (step.action === "finishAccount") {
+    actionResult = await finishAccount(page);
+  }
+
+  if (step.action === "localAuditSession") {
+    actionResult = await createLocalAuditSession({ context, baseUrl });
+    await page.goto(absoluteUrl(baseUrl, "/auth"), {
+      waitUntil: WAIT_UNTIL,
+      timeout: 30000
+    });
   }
 
   await page.waitForTimeout(500);
@@ -331,21 +629,11 @@ function renderReport({ baseUrl, generatedAt, screenshotDir, results }) {
   return `${lines.join("\n")}\n`;
 }
 
-async function runJourney({ browser, baseUrl, viewport, journey, screenshotDir }) {
-  const context = await browser.newContext({
-    ignoreHTTPSErrors: true,
-    viewport: viewport.size,
-    userAgent: viewport.userAgent
-  });
-  const page = await context.newPage();
+async function runJourney({ context, page, baseUrl, viewport, journey, screenshotDir }) {
   const steps = [];
 
-  try {
-    for (const step of journey.steps) {
-      steps.push(await captureStep({ page, baseUrl, journey, step, viewport, screenshotDir }));
-    }
-  } finally {
-    await context.close();
+  for (const step of journey.steps) {
+    steps.push(await captureStep({ context, page, baseUrl, journey, step, viewport, screenshotDir }));
   }
 
   return { viewport, journey, steps };
@@ -365,9 +653,39 @@ async function main() {
   const browser = await chromium.launch({ headless: true });
   try {
     for (const viewport of viewports) {
+      const context = await browser.newContext({
+        ignoreHTTPSErrors: true,
+        viewport: viewport.size,
+        userAgent: viewport.userAgent
+      });
+      const page = await context.newPage();
+
       for (const journey of journeys) {
-        results.push(await runJourney({ browser, baseUrl, viewport, journey, screenshotDir }));
+        if (journey.requiresFreshSession) {
+          await context.clearCookies();
+        }
+        results.push(await runJourney({ context, page, baseUrl, viewport, journey, screenshotDir }));
+
+        if (journey.id === "login" && !(await isSignedIn(page))) {
+          results.push(
+            await runJourney({
+              context,
+              page,
+              baseUrl,
+              viewport,
+              screenshotDir,
+              journey: {
+                id: "local-audit-session",
+                persona: "A browser UX agent that needs a safe local signed-in session for deeper walkthroughs.",
+                goal: "Create a localhost-only audit session when email/SMS code delivery prevents automated login.",
+                steps: [{ label: "Create Local Audit Session", action: "localAuditSession" }]
+              }
+            })
+          );
+        }
       }
+
+      await context.close();
     }
   } finally {
     await browser.close();
