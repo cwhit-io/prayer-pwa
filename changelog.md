@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-07-18: Fixed standalone deployment asset serving by copying `public/` and `.next/static/` into `.next/standalone` before service startup.
 - 2026-07-18: PRAY page now emphasizes a large primary Start Prayer timer button and makes the ACTS guide an optional collapsible support section.
 - 2026-07-17: Added production Dockerfile, `.dockerignore`, standalone Next output, and GitHub Actions container workflow for GHCR image builds/pushes.
 - 2026-07-09: Wired fortwayneprays.org: production Next on :3000, NEXT_PUBLIC_APP_URL, Cloudflare Tunnel ingress already points here; user systemd unit in deploy/prayer-pwa.service. Documented in handoff.md + agent.md for agents.
