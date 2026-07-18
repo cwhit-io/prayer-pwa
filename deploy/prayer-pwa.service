@@ -14,7 +14,7 @@ Environment=PORT=3000
 Environment=HOSTNAME=0.0.0.0
 EnvironmentFile=-/home/blackhawk/prayer-pwa/.env.local
 # Cloudflare Tunnel ingress: fortwayneprays.org → http://10.10.96.138:3000
-ExecStart=/usr/bin/npm run start -- --hostname 0.0.0.0 --port 3000
+ExecStart=/usr/bin/node /home/blackhawk/prayer-pwa/.next/standalone/server.js
 Restart=on-failure
 RestartSec=5
 TimeoutStartSec=60
