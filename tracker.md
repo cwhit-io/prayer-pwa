@@ -55,6 +55,7 @@
 - [x] GitHub container workflow: build/test on PRs and publish GHCR image on main/tags
 - [x] PRAY page: primary Start Prayer timer CTA with optional guided ACTS section
 - [x] UX agent: scripted persona walkthrough reports via `npm run ux:audit`
+- [x] Browser UX agent: Playwright mobile/desktop screenshots and click walkthroughs via `npm run ux:browser`
 - [ ] Phase 7 scheduled/cron dispatch for daily/weekly types
 - [ ] Series content / campaign-week prompts
 - [ ] Light reporting (CSV export)

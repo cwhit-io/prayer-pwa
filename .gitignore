@@ -9,4 +9,5 @@ build/
 coverage/
 tsconfig.tsbuildinfo
 ux-reports/*.md
+ux-reports/screenshots/
 !ux-reports/.gitkeep
