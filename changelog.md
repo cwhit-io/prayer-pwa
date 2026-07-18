@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-07-17: Added production Dockerfile, `.dockerignore`, standalone Next output, and GitHub Actions container workflow for GHCR image builds/pushes.
 - 2026-07-09: Wired fortwayneprays.org: production Next on :3000, NEXT_PUBLIC_APP_URL, Cloudflare Tunnel ingress already points here; user systemd unit in deploy/prayer-pwa.service. Documented in handoff.md + agent.md for agents.
 - 2026-07-09: Site identity FortWaynePrays.org / Fort Wayne Prays; site footer with © Blackhawk Ministries and 7400 E State Blvd address; default public URL for email links.
 - 2026-07-09: Sign-in: if contact is not found in Planning Center, still send OTP and allow creating an unlinked prayer account (name + verified email/phone).

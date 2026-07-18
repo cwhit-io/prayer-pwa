@@ -22,6 +22,7 @@
 | After code changes | `cd ~/prayer-pwa && npm run build && systemctl --user restart prayer-pwa` |
 | Postgres | Docker Compose service `prayer-pwa-postgres-1` |
 | Tunnel | system `cloudflared.service` (token-based); do not reinvent tunnel — only keep app listening on **3000** |
+| Container image | GitHub Actions workflow `.github/workflows/container.yml` builds on PRs and publishes `ghcr.io/cwhit-io/prayer-pwa` on `main`/tags |
 
 Footer branding: Fort Wayne Prays · fortwayneprays.org · © Blackhawk Ministries · 7400 E State Blvd, Fort Wayne, IN 46815 (`src/app/components/site-footer.tsx`).
 

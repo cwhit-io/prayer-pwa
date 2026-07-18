@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: "standalone",
   // Allow Cloudflare Tunnel / public host during dev (HMR + assets).
   allowedDevOrigins: [
     "10.10.96.138",

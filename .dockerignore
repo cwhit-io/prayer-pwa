@@ -1,0 +1,15 @@
+.git
+.github
+.next
+node_modules
+npm-debug.log*
+.env
+.env.local
+.env.*.local
+tsconfig.tsbuildinfo
+coverage
+README.md
+changelog.md
+handoff.md
+plan-tracker.md
+tracker.md

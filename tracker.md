@@ -52,6 +52,7 @@
 - [x] Phase 4.5 closeout: custom-field map admin + writeback queue (enable when church IDs ready)
 - [x] Phase 7 foundation: admin notification manager (types, frequency, HTML templates, upload, log)
 - [x] Phase 7 event hooks + member email opt-in for prayer request updates
+- [x] GitHub container workflow: build/test on PRs and publish GHCR image on main/tags
 - [ ] Phase 7 scheduled/cron dispatch for daily/weekly types
 - [ ] Series content / campaign-week prompts
 - [ ] Light reporting (CSV export)
