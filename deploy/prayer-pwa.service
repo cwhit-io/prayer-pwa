@@ -1,0 +1,23 @@
+[Unit]
+Description=Fort Wayne Prays (Next.js) — fortwayneprays.org
+Documentation=https://fortwayneprays.org
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=blackhawk
+Group=blackhawk
+WorkingDirectory=/home/blackhawk/prayer-pwa
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOSTNAME=0.0.0.0
+EnvironmentFile=-/home/blackhawk/prayer-pwa/.env.local
+# Cloudflare Tunnel ingress: fortwayneprays.org → http://10.10.96.138:3000
+ExecStart=/usr/bin/npm run start -- --hostname 0.0.0.0 --port 3000
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target

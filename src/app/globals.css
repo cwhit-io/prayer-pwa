@@ -1,0 +1,601 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  /* Brand */
+  --yellow: #ffd300;
+  --yellow-deep: #f2b900;
+  --yellow-hover: #ffe04a;
+  --yellow-active: #e8b900;
+  /* Soft dark surfaces — avoid pure #000 / #fff for reading comfort */
+  --bg: #151515;
+  --bg-deep: #111111;
+  --surface: #1d1d1d;
+  --surface-raised: #252525;
+  --surface-hover: #2c2c2c;
+  /* Text */
+  --text: #f2f0eb;
+  --text-secondary: #b8b8b8;
+  --text-muted: #8f8f8f;
+  --scripture: #e8e4db;
+  /* Borders */
+  --border: rgba(242, 240, 235, 0.12);
+  --border-strong: rgba(242, 240, 235, 0.2);
+  /* Functional / semantic */
+  --success: #55c878;
+  --warning: #f2b900;
+  --danger: #e46a6a;
+  --focus: #ffe45c;
+  --disabled: #666666;
+  /* Legacy aliases */
+  --black: #111111;
+  --panel: #1d1d1d;
+}
+
+html {
+  scroll-behavior: smooth;
+  /* Slightly larger base so rem / Tailwind text scales up a notch (default 16px → 17px). */
+  font-size: 106.25%;
+}
+
+body {
+  margin: 0;
+  /* Campaign / UI — condensed */
+  font-family: var(--font-body), "Roboto Condensed", "Arial Narrow", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.55;
+}
+
+button,
+input,
+select,
+textarea,
+nav {
+  font-family: inherit;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.text-yellow {
+  color: var(--yellow);
+}
+
+.bg-yellow {
+  background: var(--yellow);
+}
+
+/* Display / campaign titles */
+.brand-logo,
+.brush-title,
+.brush-small {
+  font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+  font-style: italic;
+  transform: skew(-7deg);
+  text-shadow: 2px 2px 0 rgba(255, 255, 255, 0.05);
+}
+
+.brand-logo span,
+.brush-title span {
+  color: var(--yellow);
+}
+
+.brand-logo span {
+  border-bottom: 4px solid var(--yellow);
+}
+
+.nav-link {
+  position: relative;
+  padding-bottom: 0.45rem;
+}
+
+.nav-link:hover,
+.nav-link:focus-visible {
+  color: var(--text);
+}
+
+.nav-link::after {
+  background: var(--yellow);
+  bottom: 0;
+  content: "";
+  height: 3px;
+  left: 0;
+  opacity: 0;
+  position: absolute;
+  width: 100%;
+}
+
+.nav-link:hover::after,
+.nav-link:focus-visible::after {
+  opacity: 1;
+}
+
+.bottom-nav-link {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* Stylized primary PRAY CTA in nav */
+.pray-nav-btn {
+  align-items: center;
+  background:
+    linear-gradient(180deg, #ffe24a 0%, var(--yellow) 42%, var(--yellow-deep) 100%);
+  border: 2px solid #fff;
+  border-radius: 0.45rem;
+  box-shadow:
+    0 0 0 2px #000,
+    0 8px 22px rgba(255, 211, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  color: #000;
+  display: inline-flex;
+  font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+  font-size: 1.05rem;
+  font-style: italic;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  padding: 0.55rem 1.15rem 0.45rem;
+  text-transform: uppercase;
+  transform: skew(-8deg);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+
+.pray-nav-btn:hover,
+.pray-nav-btn:focus-visible {
+  box-shadow:
+    0 0 0 2px #000,
+    0 12px 28px rgba(255, 211, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  filter: brightness(1.05);
+  transform: skew(-8deg) translateY(-2px) scale(1.04);
+}
+
+.pray-nav-btn-mobile {
+  font-size: 1.15rem;
+  justify-self: center;
+  letter-spacing: 0.12em;
+  margin-top: -0.65rem;
+  min-width: 4.6rem;
+  padding: 0.7rem 0.85rem 0.55rem;
+  text-align: center;
+}
+
+.hero-grit {
+  background:
+    radial-gradient(circle at 58% 10%, rgba(242, 240, 235, 0.1), transparent 16rem),
+    linear-gradient(100deg, rgba(17, 17, 17, 0.97) 0%, rgba(21, 21, 21, 0.92) 36%, rgba(29, 29, 29, 0.72) 57%, rgba(17, 17, 17, 0.96) 100%),
+    radial-gradient(circle at 65% 45%, rgba(242, 240, 235, 0.06), transparent 8rem),
+    linear-gradient(135deg, #111111 0%, #151515 42%, #1d1d1d 58%, #111111 100%);
+  position: relative;
+}
+
+.hero-grit::before {
+  background:
+    linear-gradient(115deg, transparent 0 48%, rgba(255, 255, 255, 0.04) 49%, transparent 56%),
+    radial-gradient(ellipse at 67% 69%, rgba(0, 0, 0, 0.94) 0 8rem, transparent 8.2rem),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.25) 0%, rgba(0, 0, 0, 0.88) 100%);
+  content: "";
+  inset: 0;
+  position: absolute;
+}
+
+.hero-grit::after {
+  background:
+    linear-gradient(110deg, transparent 0 78%, rgba(255, 211, 0, 0.45) 78.5%, transparent 79.2%),
+    radial-gradient(circle at 98% 20%, rgba(255, 211, 0, 0.4) 0 0.08rem, transparent 0.1rem),
+    radial-gradient(circle at 3% 20%, rgba(255, 211, 0, 0.4) 0 0.12rem, transparent 0.14rem);
+  background-size: 100% 100%, 1.1rem 1.1rem, 1.4rem 1.4rem;
+  content: "";
+  inset: 0;
+  opacity: 0.4;
+  pointer-events: none;
+  position: absolute;
+}
+
+.crown-mark {
+  color: var(--yellow);
+  height: 5.4rem;
+  margin-left: 10rem;
+  transform: rotate(-8deg);
+  width: 5.4rem;
+}
+
+.progress-ring {
+  background:
+    radial-gradient(circle, var(--bg-deep) 0 56%, transparent 57%),
+    conic-gradient(var(--yellow) 0 var(--progress), rgba(242, 240, 235, 0.18) var(--progress) 100%);
+}
+
+.dark-panel {
+  background: linear-gradient(140deg, var(--surface-raised), var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 1.15rem;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+}
+
+.stat-cell {
+  align-items: center;
+  border-right: 1px solid rgba(255, 255, 255, 0.16);
+  display: flex;
+  gap: 1.1rem;
+}
+
+.stat-cell p,
+.stat-cell span {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.stat-cell strong {
+  color: var(--text);
+  display: block;
+  font-size: 2.25rem;
+  line-height: 1.05;
+}
+
+.stat-icon {
+  color: var(--yellow);
+  flex: 0 0 auto;
+  height: 3.2rem;
+  width: 3.2rem;
+}
+
+.focus-art {
+  min-height: 11rem;
+  position: relative;
+}
+
+.focus-art-future {
+  background:
+    linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.55) 100%),
+    radial-gradient(circle at 50% 18%, #d8ecff 0 10%, transparent 10.2%),
+    linear-gradient(135deg, #1d2d36, #6a7f73 42%, #1a1d20 43% 100%);
+}
+
+.focus-art-family {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.58)),
+    radial-gradient(circle at 55% 24%, #f3d38e 0 9%, transparent 9.2%),
+    linear-gradient(135deg, #5d4b2d, #d4a44e 43%, #24200f 100%);
+}
+
+.focus-art-finances {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.58)),
+    linear-gradient(145deg, #2c3134, #80766a 46%, #131516 100%);
+}
+
+.focus-art-friends {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.62)),
+    radial-gradient(circle at 40% 18%, #c9823d 0 11%, transparent 11.3%),
+    linear-gradient(135deg, #29231f, #745335 45%, #0c0d0e 100%);
+}
+
+.date-pill {
+  background: var(--yellow);
+  border-radius: 0.35rem;
+  color: #000;
+  font-size: 0.85rem;
+  font-weight: 900;
+  left: 1rem;
+  padding: 0.35rem 0.55rem;
+  position: absolute;
+  text-transform: uppercase;
+  top: 1rem;
+}
+
+.focus-icon {
+  background: var(--bg-deep);
+  border: 2px solid var(--yellow);
+  border-radius: 999px;
+  color: var(--yellow);
+  display: grid;
+  font-size: 1.35rem;
+  height: 4.1rem;
+  left: 50%;
+  place-items: center;
+  position: absolute;
+  top: -2rem;
+  transform: translateX(-50%);
+  width: 4.1rem;
+}
+
+.goal-ring-card {
+  background: linear-gradient(150deg, var(--surface-raised), var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+  padding: 1.5rem;
+}
+
+.kingdom-card-shade {
+  background:
+    radial-gradient(circle at 50% 24%, rgba(255, 211, 0, 0.42), transparent 5rem),
+    linear-gradient(180deg, transparent 20%, rgba(0, 0, 0, 0.75));
+  inset: 0;
+  position: absolute;
+}
+
+.featured-idea {
+  min-height: 23rem;
+  position: relative;
+}
+
+.featured-idea::after {
+  background:
+    linear-gradient(12deg, transparent 0 54%, rgba(255, 211, 0, 0.92) 55% 67%, transparent 68%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(199, 190, 164, 0.9));
+  border-radius: 0.75rem;
+  bottom: 2.25rem;
+  content: "My 4\a Friends\a\a1.\a2.\a3.\a4.";
+  color: #111;
+  font-family: "Comic Sans MS", "Segoe Print", cursive;
+  font-size: 1.7rem;
+  line-height: 1.25;
+  padding: 2rem 2rem;
+  position: absolute;
+  right: 2rem;
+  transform: rotate(4deg);
+  white-space: pre;
+  width: 15rem;
+}
+
+.paint-button {
+  box-shadow: 0 12px 28px rgba(255, 211, 0, 0.25);
+  z-index: 2;
+}
+
+.plc-page {
+  background:
+    radial-gradient(circle at top right, rgba(255, 211, 0, 0.1), transparent 22rem),
+    radial-gradient(circle at 12% 8%, rgba(242, 240, 235, 0.06), transparent 15rem),
+    var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 3rem 1.5rem 7rem;
+}
+
+.plc-shell {
+  margin-inline: auto;
+  max-width: 72rem;
+}
+
+.plc-shell-wide {
+  margin-inline: auto;
+  max-width: 80rem;
+}
+
+.plc-eyebrow {
+  color: var(--yellow);
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.plc-title {
+  color: var(--text);
+  font-size: clamp(2.5rem, 7vw, 5rem);
+  font-weight: 900;
+  line-height: 0.95;
+  text-transform: uppercase;
+}
+
+/* UI secondary copy (descriptions, helper text) */
+.plc-copy {
+  color: var(--text-secondary);
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+/**
+ * Long-form reading: prayer prompts, devotionals.
+ * Regular-width Roboto for calmer absorption; campaign UI stays condensed.
+ */
+.plc-reading {
+  color: var(--text);
+  font-family: var(--font-reading), Roboto, Arial, sans-serif;
+  font-size: 1.08rem;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 1.75;
+}
+
+/**
+ * Scripture / quoted passage — regular weight (not italic) for multi-verse comfort.
+ * Yellow left border marks the quote.
+ */
+.plc-scripture {
+  color: var(--scripture);
+  font-family: var(--font-reading), Roboto, Arial, sans-serif;
+  font-size: 1.06rem;
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 1.85;
+}
+
+.plc-panel {
+  background: linear-gradient(145deg, var(--surface-raised) 0%, var(--surface) 100%);
+  border: 1px solid var(--border);
+  border-radius: 0.85rem;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.plc-card {
+  background: rgba(242, 240, 235, 0.04);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+}
+
+.plc-card-muted {
+  background: rgba(17, 17, 17, 0.55);
+  border: 1px solid rgba(242, 240, 235, 0.06);
+  border-radius: 0.65rem;
+}
+
+.plc-label {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.plc-input {
+  background: var(--bg-deep);
+  border: 1px solid var(--border-strong);
+  border-radius: 0.6rem;
+  color: var(--text);
+  outline: none;
+}
+
+.plc-input::placeholder {
+  color: var(--text-muted);
+}
+
+.plc-input:focus {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 3px rgba(255, 228, 92, 0.2);
+}
+
+.plc-input:disabled {
+  color: var(--disabled);
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+.plc-checkbox {
+  accent-color: var(--yellow);
+  background: var(--bg-deep);
+  border: 1px solid rgba(255, 211, 0, 0.55);
+  border-radius: 0.25rem;
+  height: 1rem;
+  width: 1rem;
+}
+
+select.plc-input option {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.plc-button {
+  background: var(--yellow);
+  border-radius: 999px;
+  color: var(--bg);
+  display: inline-flex;
+  font-size: 0.9rem;
+  font-weight: 900;
+  justify-content: center;
+  padding: 0.85rem 1.35rem;
+  text-transform: uppercase;
+  transition: background 0.15s ease, filter 0.15s ease;
+}
+
+.plc-button:hover,
+.plc-button:focus-visible {
+  background: var(--yellow-hover);
+}
+
+.plc-button:active {
+  background: var(--yellow-active);
+}
+
+.plc-button:disabled,
+.plc-button[disabled] {
+  background: var(--disabled);
+  color: rgba(242, 240, 235, 0.55);
+  cursor: not-allowed;
+  filter: none;
+}
+
+.plc-button-secondary {
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--text);
+  display: inline-flex;
+  font-size: 0.9rem;
+  font-weight: 900;
+  justify-content: center;
+  padding: 0.85rem 1.35rem;
+  text-transform: uppercase;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.plc-button-secondary:hover,
+.plc-button-secondary:focus-visible {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+
+.plc-button-secondary:disabled,
+.plc-button-secondary[disabled] {
+  color: var(--disabled);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.plc-pill {
+  background: var(--yellow);
+  border-radius: 999px;
+  color: #151515;
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 900;
+  padding: 0.35rem 0.75rem;
+  text-transform: uppercase;
+}
+
+.plc-status {
+  background: rgba(17, 17, 17, 0.55);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--yellow);
+  font-size: 0.78rem;
+  font-weight: 900;
+  padding: 0.35rem 0.75rem;
+  text-transform: uppercase;
+}
+
+.plc-divider > * + * {
+  border-top: 1px solid var(--border);
+}
+
+/* Soft chrome for sticky nav / footer */
+.plc-chrome {
+  background: rgba(17, 17, 17, 0.92);
+  border-color: var(--border);
+}
+
+@media (max-width: 767px) {
+  .brush-title {
+    font-size: 4.8rem;
+  }
+
+  .crown-mark {
+    height: 4.8rem;
+    margin-left: 7rem;
+    width: 4.8rem;
+  }
+
+  .stat-cell {
+    border-right: 0;
+  }
+
+  .featured-idea::after {
+    opacity: 0.24;
+    right: 1rem;
+  }
+}

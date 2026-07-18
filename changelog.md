@@ -1,0 +1,70 @@
+# Changelog
+
+## Unreleased
+
+- 2026-07-09: Wired fortwayneprays.org: production Next on :3000, NEXT_PUBLIC_APP_URL, Cloudflare Tunnel ingress already points here; user systemd unit in deploy/prayer-pwa.service. Documented in handoff.md + agent.md for agents.
+- 2026-07-09: Site identity FortWaynePrays.org / Fort Wayne Prays; site footer with © Blackhawk Ministries and 7400 E State Blvd address; default public URL for email links.
+- 2026-07-09: Sign-in: if contact is not found in Planning Center, still send OTP and allow creating an unlinked prayer account (name + verified email/phone).
+- 2026-07-09: Admin nav reorganized by job (Overview, Campaign, Content, Community, People, Messages) with secondary links and matching Overview cards.
+- 2026-07-09: Admin moderation keywords support CSV download + full replace upload.
+- 2026-07-09: Admin campaign prompts and ACTS prompts support CSV download + full replace upload; removed seed starter library.
+- 2026-07-09: Form actions no longer crash the app on validation/provider errors — redirect with on-page banners (`FormBanner` / `?error=`) across auth, log, requests, and admin.
+- 2026-07-09: Notification event hooks: someone prayed for my request (member email opt-in on profile), new board request alerts to admins/prayer team; wires into request pray + board publish.
+- 2026-07-09: Admin notifications manager — enable types, frequency/audience/channels, HTML email templates (paste or upload), SMS copy, test sends, send log; login codes use managed templates.
+- 2026-07-09: Phase 4.5 closeout — production OTP (rate limits, require delivery), household-expanded login candidates, full Family/Friends pull on login, bulk sync, custom-field map + writeback queue from prayer sessions.
+- 2026-07-09: Church family name list on profile scrolls (max height) so long groups don’t dominate the page.
+- 2026-07-09: Planning Center Friends sync uses `GET /groups/v2/people/{id}/groups` (same API credentials) and only includes groups with group type ids `428832`, `428831`, `428830`.
+- 2026-07-09: Elastic Email save verifies SendHttp access (not just key presence); Access Denied shows in-page with IP/permission checklist instead of a runtime crash.
+- 2026-07-09: Elastic Email sends use `POST /emails/transactional` with correct Recipients.To shape; clearer Access Denied guidance for SendHttp permission.
+- 2026-07-09: Fixed Elastic Email connection test — v4 has no `/accounts`; validate via `GET /domains` before saving credentials.
+- 2026-07-09: Added member-facing Planning Center login flow: email/phone OTP authorization, household/person selection, verified contact-method records, and user creation keyed by Planning Center Person ID.
+- 2026-07-09: PRAY timer soft cap (default 60 min, admin-configurable): auto-pauses at the limit with Continue +30 / Save / End; also pauses when the tab is hidden.
+- 2026-07-09: Removed prayer session modal; timer + ACTS live on the PRAY page. Board/prompt Pray links to `/log`.
+- 2026-07-09: Supplication reloads mix community requests + campaign prompts, weighted toward under-prayed requests.
+- 2026-07-09: Supplication “I prayed for this” records prayer counts and loads a new S item (not timer start).
+- 2026-07-09: Scroll to top on route changes so soft navigations don’t land mid-page.
+- 2026-07-09: PRAY page prompt cards have a refresh control to load another random prompt per ACTS step.
+- 2026-07-09: Removed suggested minutes from prayer prompts (admin form, archive pills, PRAY guide).
+- 2026-07-09: ACTS prompts (Adoration/Confession/Thanksgiving) managed in admin; removed Thanksgiving/Confession campaign categories; PRAY page loads random ACTS prompts per step.
+- 2026-07-09: Community board safety: random publish delay, keyword holds for manual approval, user notice on submit, admin Moderation page for keywords/queue.
+- 2026-07-09: Community board “I prayed” counts total times prayed (same person can mark multiple times); under-prayed float to the top.
+- 2026-07-09: Community prayer request board at `/requests` with `/requests/mine` for personal submissions and testimonies.
+- 2026-07-09: Merged profile and dashboard into `/auth` with inline pledge create/edit; `/dashboard` and `/pledge` redirect there.
+- 2026-07-09: Added admin prompt category manager (add, edit/rename, sort order, activate/hide) backed by `prompt_categories`.
+- 2026-07-09: Added admin scripture picker (book / chapter / verse range) that auto-fills reference + passage text for prompt creation.
+- 2026-07-09: Linked prayer-prompt scripture references to English ESV on YouVersion (bible.com); app key validates passages via YouVersion Platform API.
+- 2026-07-08: Admin-only Planning Center: store API keys, sync users by email, manual person-ID override, pull household (Family) and small-group (Friends) people lists.
+- 2026-07-08: Members no longer see or link Planning Center IDs; Family/Friends names show on the dashboard after admin sync.
+- 2026-07-08: Admin hub with cleaner sub-nav across Overview, Planning Center, Prompts, and Requests.
+- 2026-07-08: Removed Groups and Prayer Team from member navigation (routes redirect); simplified request visibility options.
+- 2026-07-08: Four focus areas updated to Future, Family, Finances, Friends with series dates; copy set to “Your Kingdom come in Fort Wayne as it is in heaven.”
+- 2026-07-08: Log page cleanup — manual minute entry is a toggle instead of a second always-visible column.
+- 2026-07-08: Started Phase 4.5 Planning Center integration — person linking, local households/groups, memberships, request routing, verified anonymous, field map, and sync queue.
+- 2026-07-08: Added `/admin/planning-center` and `/groups` for admin linking/routing tools and leader group prayer queues.
+- 2026-07-08: Expanded request visibility (household, small group, ministry team, pastor) with prayer-team fallback when memberships are missing.
+- 2026-07-08: Profile on `/auth` supports optional Planning Center link/unlink without blocking login.
+- 2026-07-08: Prayer session logging enqueues Planning Center sync jobs for progress fields (skipped until field IDs are enabled).
+- 2026-07-08: Phase 3 polish — admin prompt edit, log-page prompt selection, prompt-linked dashboard history, starter prompt library seed.
+- 2026-07-08: Fixed auth re-sign-in so elevated roles (`admin`, `prayer_team`) are no longer overwritten.
+- 2026-07-08: Reframed the homepage around `Your Kingdom come` in Fort Wayne, added church and personal goal rings, replaced placeholder glyph icons with SVG icons, and made featured prayer and recent activity dynamic.
+- 2026-07-08: Restyled the public app shell and homepage toward the Blackhawk `Pray Like Crazy` dark/yellow visual direction.
+- 2026-07-08: Extended the `Pray Like Crazy` dark/yellow visual system across auth, dashboard, pledge, log, prompts, prayer requests, prayer team, and admin pages.
+- 2026-07-08: Added Phase 4.5 Planning Center integration and future church-care roadmap phases to the project plan.
+- 2026-07-08: Completed Phase 4 prayer requests with submission, prayer-team review, admin moderation, and testimony approval.
+- 2026-07-08: Added Phase 3 prayer prompt archive, admin prompt manager, and suggested prompt logging.
+- 2026-07-08: Added a starter prayer prompt to the local Postgres database without restarting the running container.
+- 2026-07-08: Completed Phase 2 with persisted pledges, logged prayer sessions, and live public campaign progress.
+- 2026-07-08: Added a client prayer timer and manual minute logging flow.
+- 2026-07-08: Added public pledge privacy handling for church-wide totals.
+- 2026-07-08: Finished Phase 1 with Postgres-backed auth sessions and a live dashboard.
+- 2026-07-08: Added [handoff.md](/home/blackhawk/prayer-pwa/handoff.md) for the next agent.
+- 2026-07-08: Added the initial Next.js routes for pledge, logging prayer minutes, and dashboard views.
+- 2026-07-08: Added the local Postgres schema and connection helper.
+- 2026-07-08: Confirmed the production build passes after installing dependencies.
+- Added the initial Next.js app scaffold with app router and starter styles.
+- Added GitHub workflow and template scaffolding.
+- Switched the project plan from Supabase to a standard Postgres container for local development.
+- Added the Prayer Campaign PWA plan as a Markdown tracker.
+- Added `agent.md` with documentation rules for future work.
+- Added `tracker.md` for high-level project status.
+- Added `README.md` to make the repo easier to understand and publish.

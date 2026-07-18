@@ -1,0 +1,10 @@
+{
+  "name": "Fort Wayne Prays",
+  "short_name": "FW Prays",
+  "description": "Fort Wayne Prays — Blackhawk Ministries prayer campaign. Pledge and log prayer for Fort Wayne.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#ffd300",
+  "icons": []
+}
