@@ -401,6 +401,7 @@ export function ActsGuide({
   const [pausedByTab, setPausedByTab] = useState(false);
   const [isSaving, startSaveTransition] = useTransition();
   const [isMarkingPrayed, setIsMarkingPrayed] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(Boolean(focus));
   const { elapsedSeconds, resetElapsed } = useSessionClock(sessionActive, isRunning);
   const elapsedRef = useRef(0);
   const isRunningRef = useRef(false);
@@ -775,21 +776,30 @@ export function ActsGuide({
   return (
     <div className="space-y-6">
       {!sessionActive ? (
-        <header className="flex flex-wrap items-end justify-between gap-4">
-          <div className="min-w-0 space-y-2">
+        <header className="plc-panel overflow-hidden p-6 text-center sm:p-8">
+          <div className="mx-auto max-w-2xl space-y-4">
             <p className="plc-eyebrow">PRAY</p>
-            <h1 className="plc-title">A simple path to pray.</h1>
-            <p className="plc-copy max-w-xl">
+            <h1 className="brush-small text-5xl uppercase leading-none text-white sm:text-7xl">
+              Start praying.
+            </h1>
+            <p className="plc-copy mx-auto max-w-xl">
               {supplicationFocus
-                ? `Praying for: ${supplicationFocus.title}`
+                ? `Your optional guide is ready for: ${supplicationFocus.title}.`
                 : includeRequests
-                  ? "Browse the ACTS guide, then start when you’re ready."
-                  : "Guest pray — campaign prompts only. Minutes count for the church total, not a personal profile."}
+                  ? "Start the timer first. If you want a little structure, the optional guide is below."
+                  : "Guest prayer counts toward the church total. Sign in when you want personal history and pledges."}
+            </p>
+            <button
+              type="button"
+              onClick={startSession}
+              className="inline-flex w-full max-w-sm items-center justify-center rounded-2xl bg-yellow px-8 py-6 text-2xl font-black uppercase text-black shadow-[0_18px_45px_rgba(255,211,0,0.28)] transition hover:-translate-y-0.5 sm:text-3xl"
+            >
+              Start Prayer
+            </button>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-white/45">
+              Guided prayer is optional
             </p>
           </div>
-          <button type="button" onClick={startSession} className="plc-button shrink-0 min-w-[8.5rem]">
-            Start
-          </button>
         </header>
       ) : (
         <div className="space-y-2">
@@ -819,26 +829,49 @@ export function ActsGuide({
       )}
 
       <section className="plc-panel p-5 sm:p-8">
-        <ActsStepContent
-          active={active}
-          setActive={setActive}
-          prompts={prompts}
-          refreshingLetter={refreshingLetter}
-          onRefresh={() => {
-            void handleRefresh();
-          }}
-          lockSupplication={lockS}
-          supplicationKind={supplicationFocus?.kind ?? null}
-          onPrayedForThis={
-            canSaveSessions
-              ? () => {
-                  void handlePrayedForThis();
-                }
-              : undefined
-          }
-          isMarkingPrayed={isMarkingPrayed}
-          showTags={showActsTags}
-        />
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-2">
+            <p className="plc-eyebrow">Optional guide</p>
+            <h2 className="text-2xl font-black uppercase text-white">Use ACTS if it helps.</h2>
+            <p className="plc-copy max-w-xl">
+              You can simply pray with the timer, or open this guide for Adoration, Confession, Thanksgiving, and
+              Supplication prompts.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setGuideOpen((value) => !value)}
+            className="plc-button-secondary"
+            aria-expanded={guideOpen}
+          >
+            {guideOpen ? "Hide guide" : "Open guide"}
+          </button>
+        </div>
+
+        {guideOpen ? (
+          <div className="mt-6">
+            <ActsStepContent
+              active={active}
+              setActive={setActive}
+              prompts={prompts}
+              refreshingLetter={refreshingLetter}
+              onRefresh={() => {
+                void handleRefresh();
+              }}
+              lockSupplication={lockS}
+              supplicationKind={supplicationFocus?.kind ?? null}
+              onPrayedForThis={
+                canSaveSessions
+                  ? () => {
+                      void handlePrayedForThis();
+                    }
+                  : undefined
+              }
+              isMarkingPrayed={isMarkingPrayed}
+              showTags={showActsTags}
+            />
+          </div>
+        ) : null}
       </section>
 
       {!sessionActive && manualEntry ? (

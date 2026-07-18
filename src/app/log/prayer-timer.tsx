@@ -90,17 +90,17 @@ export function SessionTimerBar({
   }
 
   const btn =
-    "inline-flex min-h-10 min-w-[4.25rem] flex-1 items-center justify-center rounded-full px-3 py-2 text-xs font-black uppercase sm:flex-none sm:min-w-0";
+    "inline-flex min-h-11 min-w-[4.75rem] flex-1 items-center justify-center rounded-full px-4 py-2.5 text-sm font-black uppercase sm:flex-none sm:min-w-0";
 
   return (
-    <section className="plc-panel p-4 sm:p-5">
-      <div className="flex flex-col gap-3">
+    <section className="plc-panel p-5 sm:p-7">
+      <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex min-w-0 items-baseline gap-2">
-            <span className="font-mono text-3xl font-black tabular-nums leading-none text-white sm:text-4xl">
+          <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-baseline">
+            <span className="font-mono text-5xl font-black tabular-nums leading-none text-white sm:text-7xl">
               {formatElapsed(elapsedSeconds)}
             </span>
-            <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/40">
+            <span className="text-xs font-black uppercase tracking-[0.18em] text-yellow">
               {isRunning ? "Running" : elapsedSeconds > 0 ? "Paused" : "Ready"}
             </span>
           </div>
@@ -111,7 +111,7 @@ export function SessionTimerBar({
           ) : null}
         </div>
 
-        <div className="grid grid-cols-4 gap-1.5 sm:flex sm:flex-wrap sm:gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
           {!isRunning ? (
             <button type="button" onClick={onResume} className={`${btn} bg-yellow text-black`}>
               {elapsedSeconds === 0 ? "Start" : "Resume"}
