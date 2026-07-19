@@ -57,6 +57,7 @@
 - [x] UX agent: scripted persona walkthrough reports via `npm run ux:audit`
 - [x] Browser UX agent: Playwright mobile/desktop screenshots and click walkthroughs via `npm run ux:browser`
 - [x] Auth sessions now roll forward for 30 days from recent signed-in app use
+- [x] Homepage focus cards now have image panels for Future, Family, Finances, and Friends
 - [ ] Phase 7 scheduled/cron dispatch for daily/weekly types
 - [ ] Series content / campaign-week prompts
 - [ ] Light reporting (CSV export)

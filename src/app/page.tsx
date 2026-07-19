@@ -23,28 +23,28 @@ const prayerCircles = [
     title: "Seasons, transitions, surrender",
     subtitle: "We don’t pray for the past—we align our hearts with God’s purposes ahead.",
     Icon: PersonIcon,
-    art: "future"
+    image: "/focus-future.svg"
   },
   {
     label: "Family",
     title: "Households shaped by prayer",
     subtitle: "Honor parents, cover the people in your home, and pray for church family.",
     Icon: FamilyIcon,
-    art: "family"
+    image: "/focus-family.svg"
   },
   {
     label: "Finances",
     title: "Debt, giving, and blessing",
     subtitle: "Ask God to form wise, generous, free hearts with money.",
     Icon: ChartIcon,
-    art: "finances"
+    image: "/focus-finances.svg"
   },
   {
     label: "Friends",
     title: "Names carried with love",
     subtitle: "Pray for community, invitation, and four friends by name this year.",
     Icon: FriendsIcon,
-    art: "friends"
+    image: "/focus-friends.svg"
   }
 ];
 
@@ -184,7 +184,10 @@ export default async function HomePage() {
         <div className="grid gap-5 md:grid-cols-4">
           {prayerCircles.map((circle) => (
             <article key={circle.label} className="focus-card overflow-hidden rounded-lg border border-paper/10 bg-surface">
-              <div className={`focus-art focus-art-${circle.art}`}>
+              <div
+                className="focus-art"
+                style={{ "--focus-image": `url(${circle.image})` } as CSSProperties}
+              >
                 <div className="kingdom-card-shade" />
               </div>
               <div className="relative px-5 pb-6 pt-8 text-center">

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 520" role="img" aria-labelledby="title desc">
+  <title id="title">Friends gathered together</title>
+  <desc id="desc">A group of friends standing shoulder to shoulder, symbolizing invitation and community.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#0b0c0d"/>
+      <stop offset=".48" stop-color="#5f3f25"/>
+      <stop offset="1" stop-color="#050505"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="58%" cy="26%" r="48%">
+      <stop offset="0" stop-color="#ffd300" stop-opacity=".52"/>
+      <stop offset="1" stop-color="#ffd300" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="900" height="520" fill="url(#bg)"/>
+  <rect width="900" height="520" fill="url(#glow)"/>
+  <path d="M0 372c127-31 246-39 357-23 128 19 231 14 330-18 72-24 139-29 213-14v203H0Z" fill="#101111"/>
+  <g fill="#070707">
+    <circle cx="286" cy="213" r="35"/>
+    <path d="M245 255h82l30 158h-56l-14-73-15 73h-57Z"/>
+    <circle cx="395" cy="198" r="39"/>
+    <path d="M350 243h91l32 170h-62l-16-82-17 82h-61Z"/>
+    <circle cx="515" cy="201" r="39"/>
+    <path d="M469 245h92l33 168h-63l-16-82-17 82h-61Z"/>
+    <circle cx="633" cy="218" r="34"/>
+    <path d="M593 258h81l31 155h-57l-14-71-15 71h-57Z"/>
+  </g>
+  <path d="M304 276c54 35 108 35 162 0M458 274c55 37 111 37 168 0" fill="none" stroke="#ffd300" stroke-width="20" stroke-linecap="round"/>
+  <path d="M91 111c72 19 142 18 209-5M612 100c77-18 145-15 204 9" fill="none" stroke="#f2f0eb" stroke-opacity=".24" stroke-width="10" stroke-linecap="round"/>
+  <path d="m744 381 44 16-38 30 72-11" fill="none" stroke="#ffd300" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M0 0h900v520H0z" fill="#000" opacity=".14"/>
+</svg>

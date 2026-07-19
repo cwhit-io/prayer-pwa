@@ -254,35 +254,13 @@ nav {
 }
 
 .focus-art {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.7)),
+    var(--focus-image);
+  background-position: center;
+  background-size: cover;
   min-height: 11rem;
   position: relative;
-}
-
-.focus-art-future {
-  background:
-    linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.55) 100%),
-    radial-gradient(circle at 50% 18%, #d8ecff 0 10%, transparent 10.2%),
-    linear-gradient(135deg, #1d2d36, #6a7f73 42%, #1a1d20 43% 100%);
-}
-
-.focus-art-family {
-  background:
-    linear-gradient(180deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.58)),
-    radial-gradient(circle at 55% 24%, #f3d38e 0 9%, transparent 9.2%),
-    linear-gradient(135deg, #5d4b2d, #d4a44e 43%, #24200f 100%);
-}
-
-.focus-art-finances {
-  background:
-    linear-gradient(180deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.58)),
-    linear-gradient(145deg, #2c3134, #80766a 46%, #131516 100%);
-}
-
-.focus-art-friends {
-  background:
-    linear-gradient(180deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.62)),
-    radial-gradient(circle at 40% 18%, #c9823d 0 11%, transparent 11.3%),
-    linear-gradient(135deg, #29231f, #745335 45%, #0c0d0e 100%);
 }
 
 .date-pill {

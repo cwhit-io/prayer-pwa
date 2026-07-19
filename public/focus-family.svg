@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 520" role="img" aria-labelledby="title desc">
+  <title id="title">Family walking together</title>
+  <desc id="desc">A silhouetted family walking under warm light, symbolizing prayer for family.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#130f09"/>
+      <stop offset=".45" stop-color="#8c6a2f"/>
+      <stop offset="1" stop-color="#080808"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="52%" cy="20%" r="42%">
+      <stop offset="0" stop-color="#ffd300"/>
+      <stop offset=".28" stop-color="#ffd300" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#ffd300" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="900" height="520" fill="url(#bg)"/>
+  <rect width="900" height="520" fill="url(#glow)"/>
+  <path d="M0 371c119-34 221-50 327-40 93 8 174 51 269 52 96 1 179-24 304-53v190H0Z" fill="#101111"/>
+  <g fill="#070707">
+    <circle cx="358" cy="194" r="34"/>
+    <path d="M318 236h79l22 171h-51l-9-92-12 92h-53Z"/>
+    <circle cx="493" cy="195" r="35"/>
+    <path d="M452 238h82l23 169h-52l-11-91-12 91h-53Z"/>
+    <circle cx="262" cy="249" r="23"/>
+    <path d="M235 280h54l18 127h-41l-7-65-9 65h-40Z"/>
+    <circle cx="604" cy="250" r="24"/>
+    <path d="M577 281h55l18 126h-41l-8-65-9 65h-40Z"/>
+  </g>
+  <path d="M101 99c87 21 146 17 218-10M624 104c73-21 143-19 211 1" fill="none" stroke="#f2f0eb" stroke-opacity=".22" stroke-width="11" stroke-linecap="round"/>
+  <path d="m118 418 146-23m357 26 180-31" stroke="#ffd300" stroke-width="15" stroke-linecap="round" opacity=".85"/>
+  <path d="M0 0h900v520H0z" fill="#000" opacity=".14"/>
+</svg>

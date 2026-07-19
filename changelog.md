@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-07-18: Added black/yellow image panels for the homepage Future, Family, Finances, and Friends focus cards.
 - 2026-07-18: Added rolling auth expiration that refreshes valid signed-in sessions for another 30 days from recent app use.
 - 2026-07-18: Added a dependency-free UX agent script and documentation for scripted persona-based site audits.
 - 2026-07-18: Added a Playwright browser UX agent for real-click mobile/desktop screenshot reports.
