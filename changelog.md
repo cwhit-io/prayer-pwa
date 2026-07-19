@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-07-18: Incorporated the Fort Wayne skyline SVG into the homepage hero and church goal progress ring.
 - 2026-07-18: Added black/yellow image panels for the homepage Future, Family, Finances, and Friends focus cards.
 - 2026-07-18: Added rolling auth expiration that refreshes valid signed-in sessions for another 30 days from recent app use.
 - 2026-07-18: Added a dependency-free UX agent script and documentation for scripted persona-based site audits.

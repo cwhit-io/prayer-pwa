@@ -2,7 +2,6 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import {
   ChartIcon,
-  CityIcon,
   ClockIcon,
   CrownIcon,
   FamilyIcon,
@@ -65,6 +64,7 @@ export default async function HomePage() {
   return (
     <main className="min-h-screen overflow-hidden bg-night pb-8 text-paper md:pb-0">
       <section className="hero-grit relative">
+        <div className="hero-skyline" aria-hidden="true" />
         <div className="mx-auto grid min-h-[650px] max-w-7xl gap-8 px-5 py-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <div className="relative z-10 space-y-8">
             <div>
@@ -115,7 +115,7 @@ export default async function HomePage() {
               <div className="progress-ring mx-auto mt-6 grid h-56 w-56 place-items-center rounded-full" style={{ "--progress": `${progressPercent}%` } as CSSProperties}>
                 <div className="grid h-40 w-40 place-items-center rounded-full bg-night-deep/90 text-center shadow-[inset_0_0_40px_rgba(242,240,235,0.05)]">
                   <div>
-                    <CityIcon className="mx-auto h-11 w-11 text-yellow" />
+                    <span className="skyline-ring-mark mx-auto" aria-hidden="true" />
                     <div className="mt-2 text-3xl font-black text-paper">{formatCount(stats.totalMinutes)}</div>
                     <div className="text-xs font-black uppercase text-muted">Fort Wayne prayer</div>
                   </div>

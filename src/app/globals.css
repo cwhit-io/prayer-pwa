@@ -203,6 +203,21 @@ nav {
   position: absolute;
 }
 
+.hero-skyline {
+  background: linear-gradient(90deg, rgba(255, 211, 0, 0.68), rgba(242, 240, 235, 0.5), rgba(255, 211, 0, 0.4));
+  bottom: -1.25rem;
+  height: clamp(7rem, 18vw, 15rem);
+  left: 50%;
+  mask: url("/fort-wayne-skyline.svg") center bottom / contain no-repeat;
+  -webkit-mask: url("/fort-wayne-skyline.svg") center bottom / contain no-repeat;
+  opacity: 0.2;
+  pointer-events: none;
+  position: absolute;
+  transform: translateX(-50%);
+  width: min(110rem, 126vw);
+  z-index: 1;
+}
+
 .crown-mark {
   color: var(--yellow);
   height: 5.4rem;
@@ -215,6 +230,15 @@ nav {
   background:
     radial-gradient(circle, var(--bg-deep) 0 56%, transparent 57%),
     conic-gradient(var(--yellow) 0 var(--progress), rgba(242, 240, 235, 0.18) var(--progress) 100%);
+}
+
+.skyline-ring-mark {
+  background: var(--yellow);
+  display: block;
+  height: 2.8rem;
+  mask: url("/fort-wayne-skyline.svg") center / contain no-repeat;
+  -webkit-mask: url("/fort-wayne-skyline.svg") center / contain no-repeat;
+  width: 5.4rem;
 }
 
 .dark-panel {
