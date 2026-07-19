@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Suspense } from "react";
 import Link from "next/link";
+import { AuthSessionRefresh } from "@/app/components/auth-session-refresh";
 import { Roboto, Roboto_Condensed } from "next/font/google";
 import { ChunkLoadRecovery } from "@/app/components/chunk-load-recovery";
 import { HomeIcon, PersonIcon, PromptIcon } from "@/app/components/icons";
@@ -69,6 +70,7 @@ export default async function RootLayout({
     <html lang="en" className={`${robotoCondensed.variable} ${robotoReading.variable}`}>
       <body>
         <ChunkLoadRecovery />
+        <AuthSessionRefresh enabled={Boolean(user)} />
         <Suspense fallback={null}>
           <ScrollToTop />
         </Suspense>

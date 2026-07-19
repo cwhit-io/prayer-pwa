@@ -4,6 +4,7 @@ import { query } from "@/lib/postgres";
 
 export const SESSION_COOKIE_NAME = "prayer_session";
 const SESSION_DURATION_SECONDS = 60 * 60 * 24 * 30;
+export const SESSION_DURATION_MS = SESSION_DURATION_SECONDS * 1000;
 
 /** Church staff domain — any login/contact email here is granted admin. */
 export const STAFF_ADMIN_EMAIL_DOMAIN = "blackhawkministries.org";
@@ -95,6 +96,24 @@ export async function createSessionForUser(userId: string) {
   });
 
   return token;
+}
+
+export async function refreshSessionToken(token: string) {
+  const expiresAt = new Date(Date.now() + SESSION_DURATION_MS);
+  const result = await query<{ token: string }>(
+    `update auth_sessions
+     set expires_at = $2
+     where token = $1
+       and expires_at > now()
+     returning token`,
+    [token, expiresAt]
+  );
+
+  if (!result.rows[0]) {
+    return null;
+  }
+
+  return { token, expiresAt };
 }
 
 export async function signOutCurrentUser() {
