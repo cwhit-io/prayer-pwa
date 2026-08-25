@@ -6,7 +6,6 @@ import {
   type PcoLoginCandidate
 } from "@/lib/pco-client";
 import { replacePrayerPeopleForUser } from "@/lib/pco-people";
-import { roleForEmail } from "@/lib/auth";
 import { query } from "@/lib/postgres";
 import { getPlanningCenterCredentials, getTwilioCredentials } from "@/lib/settings";
 import { checkTwilioVerify, startTwilioVerify } from "@/lib/twilio";
@@ -122,16 +121,18 @@ function mapUserRow(user: UserRow) {
 
 async function findUserIdByContact(contactType: ContactType, contact: string) {
   const byMethod = await query<{ user_id: string }>(
-    `select user_id
+    `select distinct user_id
      from user_contact_methods
      where type = $1
        and value_normalized = $2
-     order by verified_at desc nulls last, created_at desc
-     limit 1`,
+      limit 2`,
     [contactType, contact]
   );
-  if (byMethod.rows[0]?.user_id) {
+  if (byMethod.rows.length === 1 && byMethod.rows[0]?.user_id) {
     return byMethod.rows[0].user_id;
+  }
+  if (byMethod.rows.length > 1) {
+    return null;
   }
 
   if (contactType === "email") {
@@ -222,8 +223,7 @@ async function findPlanningCenterCandidates(contactType: ContactType, contact: s
   try {
     return await findLoginCandidatesByContact({ contactType, contact });
   } catch {
-    // Directory lookup failed — allow unlinked registration rather than blocking sign-in.
-    return [] as LoginCandidate[];
+    throw new Error("The church directory could not be reached. Please try signing in again shortly.");
   }
 }
 
@@ -657,6 +657,16 @@ export async function completePlanningCenterLogin(input: {
     throw new Error("Please choose one of the verified household members.");
   }
 
+  const consumed = await query<{ id: string }>(
+    `update login_challenges set consumed_at = now()
+     where id = $1 and consumed_at is null and expires_at > now()
+     returning id`,
+    [input.challengeId]
+  );
+  if (!consumed.rows[0]) {
+    throw new Error("This verified login has already been used. Please request a new code.");
+  }
+
   const userResult = await query<UserRow>(
     `insert into app_users (
        name,
@@ -694,8 +704,6 @@ export async function completePlanningCenterLogin(input: {
     contact: verified.contact,
     planningCenterPersonId: candidate.personId
   });
-
-  await query(`update login_challenges set consumed_at = now() where id = $1`, [input.challengeId]);
 
   // Full Family + Friends pull when this is a real PCO person (not local dev fallback).
   if (!candidate.personId.startsWith("local-")) {
@@ -787,6 +795,16 @@ export async function completeUnlinkedLogin(input: {
   const contactType = challenge.destination_type;
   const contact = challenge.destination_normalized;
 
+  const consumed = await query<{ id: string }>(
+    `update login_challenges set consumed_at = now()
+     where id = $1 and consumed_at is null and expires_at > now()
+     returning id`,
+    [input.challengeId]
+  );
+  if (!consumed.rows[0]) {
+    throw new Error("This verified login has already been used. Please request a new code.");
+  }
+
   const existingUserId = await findUserIdByContact(contactType, contact);
   if (existingUserId) {
     const existing = await loadUserRow(existingUserId);
@@ -806,7 +824,6 @@ export async function completeUnlinkedLogin(input: {
       contact,
       planningCenterPersonId: existing.planning_center_person_id
     });
-    await query(`update login_challenges set consumed_at = now() where id = $1`, [input.challengeId]);
     return mapUserRow(existing);
   }
 
@@ -816,8 +833,6 @@ export async function completeUnlinkedLogin(input: {
   }
 
   const email = unlinkedAccountEmail(contactType, contact);
-  const role = roleForEmail(contactType === "email" ? contact : email);
-
   const userResult = await query<UserRow>(
     `insert into app_users (
        name,
@@ -829,10 +844,9 @@ export async function completeUnlinkedLogin(input: {
        planning_center_sync_status,
        planning_center_last_synced_at
      )
-     values ($1, $2, $3, null, null, null, 'unlinked', null)
-     on conflict (email) do update
-     set name = excluded.name,
-         role = case when excluded.role = 'admin' then 'admin' else app_users.role end
+      values ($1, $2, 'member', null, null, null, 'unlinked', null)
+      on conflict (email) do update
+      set name = excluded.name
      returning
        id,
        name,
@@ -841,7 +855,7 @@ export async function completeUnlinkedLogin(input: {
        planning_center_person_id,
        planning_center_display_name,
        planning_center_sync_status`,
-    [name, email, role]
+    [name, email]
   );
 
   const user = userResult.rows[0];
@@ -855,8 +869,6 @@ export async function completeUnlinkedLogin(input: {
     contact,
     planningCenterPersonId: null
   });
-  await query(`update login_challenges set consumed_at = now() where id = $1`, [input.challengeId]);
-
   return mapUserRow(user);
 }
 

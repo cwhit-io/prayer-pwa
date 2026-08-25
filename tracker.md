@@ -59,6 +59,12 @@
 - [x] Auth sessions now roll forward for 30 days from recent signed-in app use
 - [x] Homepage focus cards now have image panels for Future, Family, Finances, and Friends
 - [x] Fort Wayne skyline incorporated into homepage hero and goal ring
+- [x] Post-login: members without a recorded pledge are shown the pledge form first
+- [x] PCO writeback: Total Minutes Pledged (1091023) + Total Minutes Prayed (1091024)
+- [x] PCO writeback: only those two fields; write immediately on log/pledge
+- [x] Admin: add user from Planning Center + manual prayer session/pledge for any user
+- [x] Repair prompt punctuation (Windows-1252 / � diamonds) on import, save, display, and existing rows
+- [x] Safari bottom-nav Me menu: button popover instead of details/summary
 - [ ] Phase 7 scheduled/cron dispatch for daily/weekly types
 - [ ] Series content / campaign-week prompts
 - [ ] Light reporting (CSV export)

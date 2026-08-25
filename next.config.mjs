@@ -8,7 +8,10 @@ const nextConfig = {
     "127.0.0.1",
     "fortwayneprays.org",
     "www.fortwayneprays.org",
-    "FortWaynePrays.org"
+    "FortWaynePrays.org",
+    "prayfw.org",
+    "www.prayfw.org",
+    "PrayFW.org"
   ],
   // Server actions & CSRF origin checks behind Cloudflare Tunnel.
   experimental: {
@@ -17,6 +20,9 @@ const nextConfig = {
         "fortwayneprays.org",
         "www.fortwayneprays.org",
         "FortWaynePrays.org",
+        "prayfw.org",
+        "www.prayfw.org",
+        "PrayFW.org",
         "localhost:3000",
         "10.10.96.138:3000"
       ]

@@ -32,7 +32,7 @@ When you make a meaningful change:
 
 This repo has completed Phases 1–4 and **Phase 4.5 Planning Center** (OTP login, unlinked fallback registration, Family/Friends lists, bulk sync, writeback queue). Notifications admin + event hooks are in place; weekly cron dispatch still open.
 
-**Production domain:** [https://fortwayneprays.org](https://fortwayneprays.org)  
+**Production domains:** [https://fortwayneprays.org](https://fortwayneprays.org) (canonical), [https://prayfw.org](https://prayfw.org) (alias; allowed origins in `next.config.mjs`)  
 Cloudflare Tunnel → host **port 3000**. Run with `systemctl --user restart prayer-pwa` after `npm run build`. Details in `handoff.md` § Production / domain.
 
 Read `handoff.md`, `plan-tracker.md`, `tracker.md`, and `changelog.md` before continuing.

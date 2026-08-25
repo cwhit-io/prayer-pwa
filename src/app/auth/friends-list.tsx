@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FriendsIcon } from "@/app/components/icons";
+import { FormSubmitButton } from "@/app/components/form-submit-button";
 import type { PrayerFriendSlot } from "@/lib/prayer-friends";
 import { savePrayerFriendsAction } from "./friends-actions";
 
@@ -10,33 +10,36 @@ export function FourFriendsList({ initialSlots }: { initialSlots: PrayerFriendSl
   const filled = initialSlots.filter((slot) => slot.name.length > 0);
 
   return (
-    <article id="friends" className="plc-panel p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <FriendsIcon className="h-8 w-8 text-yellow" />
-          <div>
-            <p className="plc-eyebrow">Pray for</p>
-            <h2 className="text-2xl font-black uppercase text-white">My Friends</h2>
-          </div>
+    <article id="friends" className="plc-panel p-5 sm:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="plc-eyebrow">Private prayer list</p>
+          <h2 className="mt-1 text-2xl font-black uppercase text-white">My Four Friends</h2>
         </div>
         {!editing ? (
-          <button type="button" onClick={() => setEditing(true)} className="plc-button-secondary">
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="plc-button-secondary"
+            aria-expanded={editing}
+            aria-controls="four-friends-editor"
+          >
             {filled.length > 0 ? "Edit list" : "Add friends"}
           </button>
         ) : null}
       </div>
-      <p className="plc-copy mt-2">
-        Name four people you&apos;ll carry in prayer this year—neighbors, coworkers, classmates, or anyone on your
-        heart.
+      <p className="mt-2 text-sm leading-6 text-white/65">
+        Edit the four friends you&apos;re praying will know Jesus. Names stay private.
       </p>
 
       {editing ? (
-        <form action={savePrayerFriendsAction} className="mt-5 space-y-3">
+        <form id="four-friends-editor" action={savePrayerFriendsAction} className="mt-5 space-y-3">
           {initialSlots.map((slot) => (
             <label key={slot.slot} className="plc-label block space-y-2">
               <span>Friend {slot.slot}</span>
               <input
-                name={`friend_${slot.slot}`}
+                 name={`friend_${slot.slot}`}
+                 autoFocus={slot.slot === 1}
                 defaultValue={slot.name}
                 maxLength={80}
                 placeholder={`Name ${slot.slot}`}
@@ -45,22 +48,21 @@ export function FourFriendsList({ initialSlots }: { initialSlots: PrayerFriendSl
             </label>
           ))}
           <div className="flex flex-wrap gap-3 pt-2">
-            <button className="plc-button">Save friends</button>
+            <FormSubmitButton pendingLabel="Saving your prayer list…">Save prayer list</FormSubmitButton>
             <button type="button" onClick={() => setEditing(false)} className="plc-button-secondary">
               Cancel
             </button>
           </div>
         </form>
       ) : (
-        <div className="mt-5 grid gap-2 sm:grid-cols-2">
-          {initialSlots.map((slot) => (
-            <div key={slot.slot} className="plc-card-muted px-4 py-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/40">Friend {slot.slot}</p>
-              <p className={`mt-1 font-black ${slot.name ? "text-white" : "text-white/35"}`}>
-                {slot.name || "—"}
-              </p>
-            </div>
-          ))}
+        <div className="mt-4 flex flex-wrap gap-2">
+          {filled.length > 0 ? filled.map((slot) => (
+            <span key={slot.slot} className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm font-black text-white">
+              {slot.name}
+            </span>
+          )) : (
+            <p className="text-sm text-white/60">No friends added yet.</p>
+          )}
         </div>
       )}
     </article>

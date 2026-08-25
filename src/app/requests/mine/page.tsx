@@ -8,6 +8,7 @@ import {
   unpublishMyRequestAction
 } from "../actions";
 import { RequestForm } from "./request-form";
+import { ConfirmRequestAction } from "./confirm-request-action";
 import { SubmitNoticeModal } from "./submit-notice";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +27,9 @@ function statusLabel(status: string) {
   if (status === "praying") {
     return "Being prayed for";
   }
+  if (status === "answered") {
+    return "Prayer update: answered";
+  }
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
@@ -36,7 +40,7 @@ function boardStatusLabel(request: {
 }) {
   if (request.visibility !== "church_anonymous") {
     if (request.visibility === "prayer_team") {
-      return "Private prayer";
+      return "Private request";
     }
     return null;
   }
@@ -126,7 +130,7 @@ export default async function MyRequestsPage({
             <div>
               <p className="plc-eyebrow">My requests</p>
               <h1 className="mt-2 text-4xl font-black uppercase text-white">Share a request.</h1>
-              <p className="plc-copy mt-2">Choose community board or private prayer below.</p>
+              <p className="plc-copy mt-2">Choose who can see your request. Share only what you feel comfortable sharing.</p>
             </div>
             <Link href="/requests" className="plc-button-secondary">
               View board
@@ -148,14 +152,15 @@ export default async function MyRequestsPage({
             />
           </div>
 
-          <RequestForm action={createPrayerRequestAction} />
+          <RequestForm action={createPrayerRequestAction} canShareCommunity={Boolean(user.planningCenterPersonId)} />
         </section>
 
-        <section className="space-y-4">
+        <section id="requests" className="scroll-mt-6 space-y-4">
           <div className="plc-panel p-6">
             <h2 className="text-2xl font-black uppercase text-paper">Your requests</h2>
             <p className="plc-copy mt-2 text-sm">
-              Mark answered when God has moved, or remove a community request from the board.
+              Mark a request as answered when you no longer need the same prayer. You can also remove a community request
+              from the board or close a private request.
             </p>
             <div className="mt-5 space-y-3">
               {requests.length > 0 ? (
@@ -174,7 +179,7 @@ export default async function MyRequestsPage({
                         <span className="plc-status">{statusLabel(request.status)}</span>
                       </div>
                       <p className="mt-2 text-sm leading-6 text-muted">{request.body}</p>
-                      <p className="mt-3 text-xs uppercase tracking-[0.18em] text-white/45">
+                      <p className="mt-3 text-sm uppercase tracking-[0.12em] text-white/65">
                         {formatDate(request.createdAt)}
                         {boardLabel ? ` · ${boardLabel}` : ""}
                         {request.isAnonymous ? " · Anonymous" : ""}
@@ -182,22 +187,30 @@ export default async function MyRequestsPage({
                       {showAnswer || showUnpublish ? (
                         <div className="mt-4 flex flex-wrap gap-2 border-t border-paper/10 pt-3">
                           {showAnswer ? (
-                            <form action={markMyRequestAnsweredAction}>
-                              <input type="hidden" name="id" value={request.id} />
-                              <button type="submit" className="plc-button">
-                                Mark answered
-                              </button>
-                            </form>
+                            <ConfirmRequestAction
+                              action={markMyRequestAnsweredAction}
+                              requestId={request.id}
+                              confirmation="Mark this request as answered?"
+                              className="plc-button"
+                            >
+                              Mark as answered
+                            </ConfirmRequestAction>
                           ) : null}
                           {showUnpublish ? (
-                            <form action={unpublishMyRequestAction}>
-                              <input type="hidden" name="id" value={request.id} />
-                              <button type="submit" className="plc-button-secondary">
-                                {request.visibility === "church_anonymous"
-                                  ? "Remove from board"
-                                  : "Close request"}
-                              </button>
-                            </form>
+                            <ConfirmRequestAction
+                              action={unpublishMyRequestAction}
+                              requestId={request.id}
+                              confirmation={
+                                request.visibility === "church_anonymous"
+                                  ? "Remove this request from the signed-in community board?"
+                                  : "Close this private request?"
+                              }
+                              className="plc-button-secondary"
+                            >
+                              {request.visibility === "church_anonymous"
+                                ? "Remove from community board"
+                                : "Close private request"}
+                            </ConfirmRequestAction>
                           ) : null}
                         </div>
                       ) : null}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { FormBanner } from "@/app/components/form-banner";
-import { getCurrentUser } from "@/lib/auth";
+import { FormSubmitButton } from "@/app/components/form-submit-button";
+import { getCurrentUser, hasCapability } from "@/lib/auth";
 import { actsSteps, listActsPrompts } from "@/lib/acts-prompts";
 import { getActivePromptTagNames } from "@/lib/tags";
 import {
@@ -47,7 +48,7 @@ export default async function AdminActsPage({
     );
   }
 
-  if (user.role !== "admin") {
+  if (!hasCapability(user.role, "prayer-content:manage")) {
     return (
       <main className="plc-page">
         <section className="plc-panel mx-auto max-w-3xl p-6">
@@ -69,13 +70,14 @@ export default async function AdminActsPage({
     <main className="plc-page">
       <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[0.9fr_1.1fr]">
         <section className="plc-panel p-6">
-          <p className="plc-eyebrow">Admin · ACTS</p>
+           <p className="plc-eyebrow">Staff admin · Prayer content · ACTS guide</p>
           <h1 className="mt-2 text-4xl font-black uppercase text-white">
             {editing ? "Edit ACTS prompt" : "ACTS prompts"}
           </h1>
           <p className="plc-copy mt-2">
-            These appear randomly on the PRAY page under Adoration, Confession, and Thanksgiving. Supplication still
-            uses campaign prompts from the main prompt manager.
+             These prompts appear in the optional ACTS guide. Adoration helps people praise God, Confession helps them
+             be honest before God, Thanksgiving helps them give thanks, and Supplication helps them ask God and pray
+             for others. Supplication prompts come from the main Prayer prompts tool.
           </p>
           <div className="mt-3">
             <FormBanner
@@ -103,14 +105,14 @@ export default async function AdminActsPage({
           </div>
 
           <form action={importActsPromptsCsvAction} className="mt-4 space-y-3 rounded-xl border border-white/10 bg-black/25 p-4">
-            <p className="text-sm font-black uppercase text-white/50">Import from CSV</p>
+             <p className="text-sm font-black uppercase text-white/65">Advanced: import ACTS prompts from a file</p>
             <p className="text-xs text-muted">
               Columns: <span className="text-paper/80">step</span> (A/C/T or Adoration/Confession/Thanksgiving), title,
               body, optional <span className="text-paper/80">tags</span> (multiple with | or ; — shared with campaign
               prompts), scripture_reference, scripture_text, is_active. Download first for a template.
             </p>
             <fieldset className="space-y-2">
-              <legend className="plc-label">Import mode</legend>
+             <legend className="plc-label">What should happen to existing prompts?</legend>
               <label className="flex items-start gap-3 rounded-xl border border-paper/10 bg-night-deep/50 p-3 text-sm text-paper/80">
                 <input
                   type="radio"
@@ -120,7 +122,7 @@ export default async function AdminActsPage({
                   className="plc-checkbox mt-0.5"
                 />
                 <span>
-                  <span className="block font-black uppercase text-paper">Append</span>
+                   <span className="block font-black uppercase text-paper">Add these prompts</span>
                   <span className="mt-0.5 block text-xs text-muted">
                     Add these rows to the existing library (keeps current prompts).
                   </span>
@@ -129,7 +131,7 @@ export default async function AdminActsPage({
               <label className="flex items-start gap-3 rounded-xl border border-paper/10 bg-night-deep/50 p-3 text-sm text-paper/80">
                 <input type="radio" name="import_mode" value="replace" className="plc-checkbox mt-0.5" />
                 <span>
-                  <span className="block font-black uppercase text-paper">Replace all</span>
+                   <span className="block font-black uppercase text-paper">Replace all prompts</span>
                   <span className="mt-0.5 block text-xs text-muted">
                     Delete every ACTS prompt, then import only this file.
                   </span>
@@ -137,7 +139,7 @@ export default async function AdminActsPage({
               </label>
             </fieldset>
             <label className="plc-label block space-y-2">
-              <span>CSV file</span>
+               <span>Prompt file (.csv)</span>
               <input
                 required
                 name="csv_file"
@@ -147,7 +149,7 @@ export default async function AdminActsPage({
               />
             </label>
             <button className="plc-button-secondary" type="submit">
-              Upload CSV
+               Upload prompt file
             </button>
           </form>
 
@@ -235,7 +237,9 @@ export default async function AdminActsPage({
               />
               Active (can appear randomly on PRAY)
             </label>
-            <button className="plc-button">{editing ? "Update ACTS prompt" : "Save ACTS prompt"}</button>
+             <FormSubmitButton pendingLabel={editing ? "Updating ACTS prompt…" : "Saving ACTS prompt…"}>
+               {editing ? "Update ACTS prompt" : "Save ACTS prompt"}
+             </FormSubmitButton>
           </form>
         </section>
 

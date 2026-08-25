@@ -9,20 +9,24 @@ export function PrayButton({
   focus,
   signedIn,
   prayerCount = 0,
+  showPrayerCount = true,
   className = "plc-button"
 }: {
   focus: SessionFocus;
   signedIn: boolean;
   prayerCount?: number;
+  showPrayerCount?: boolean;
   className?: string;
 }) {
   if (!signedIn) {
     return (
       <div className="flex flex-wrap items-center gap-3">
         <Link href="/auth" className="plc-button-secondary">
-          Sign in to pray
+           Sign in to pray for this
         </Link>
-        <span className="text-xs uppercase tracking-[0.16em] text-white/40">{prayerCountLabel(prayerCount)}</span>
+        {showPrayerCount ? (
+          <span className="text-xs uppercase tracking-[0.16em] text-white/60">{prayerCountLabel(prayerCount)}</span>
+        ) : null}
       </div>
     );
   }
@@ -30,15 +34,17 @@ export function PrayButton({
   return (
     <div className="flex flex-wrap items-center gap-3">
       <Link href={prayHref(focus)} className={className}>
-        Pray
+         {focus.kind === "request" ? "Pray for this request" : "Pray with this prompt"}
       </Link>
-      <span
-        className={`text-xs uppercase tracking-[0.16em] ${
-          prayerCount === 0 ? "text-yellow/70" : "text-white/40"
-        }`}
-      >
-        {prayerCount === 0 ? "Be the first to pray" : prayerCountLabel(prayerCount)}
-      </span>
+      {showPrayerCount ? (
+        <span
+          className={`text-xs uppercase tracking-[0.16em] ${
+            prayerCount === 0 ? "text-yellow" : "text-white/60"
+          }`}
+        >
+          {prayerCount === 0 ? "Be the first to pray" : prayerCountLabel(prayerCount)}
+        </span>
+      ) : null}
     </div>
   );
 }

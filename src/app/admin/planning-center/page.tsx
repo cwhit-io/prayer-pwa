@@ -1,37 +1,16 @@
 import Link from "next/link";
 import { FormBanner } from "@/app/components/form-banner";
-import { getCurrentUser } from "@/lib/auth";
-import { listUsersForAdminLinking } from "@/lib/planning-center";
-import {
-  getSyncQueueStats,
-  listPlanningCenterFieldMap
-} from "@/lib/planning-center-writeback";
+import { getCurrentUser, hasCapability } from "@/lib/auth";
+import { countUsersForAdminLinking, listUsersForAdminLinking, listUsersForStaffEntry, type LinkedUserSummary } from "@/lib/planning-center";
 import { getPlanningCenterCredentials } from "@/lib/settings";
-import {
-  bulkSyncPlanningCenterAction,
-  manualPersonOverrideAction,
-  processSyncQueueAction,
-  refreshUserAction,
-  saveFieldMapAction,
-  savePcoCredentialsAction,
-  setUserRoleAction,
-  syncUserAction,
-  unlinkUserAction
-} from "./actions";
+import { MemberEditor } from "../member-editor";
+import { AddPlanningCenterPerson } from "../add-planning-center-person";
+import { StaffEntryEditor } from "../staff-entry-editor";
 
 export const dynamic = "force-dynamic";
 
-function formatDate(value: string | null) {
-  if (!value) {
-    return "—";
-  }
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit"
-  }).format(new Date(value));
+function formatCount(value: number) {
+  return new Intl.NumberFormat("en-US").format(value);
 }
 
 export default async function AdminPlanningCenterPage({
@@ -52,6 +31,13 @@ export default async function AdminPlanningCenterPage({
     skipped?: string;
     errored?: string;
     role?: string;
+    user_added?: string;
+    created?: string;
+    name?: string;
+    session_saved?: string;
+    pledge_saved?: string;
+    member_q?: string;
+    member_page?: string;
     error?: string;
   }>;
 }) {
@@ -71,7 +57,7 @@ export default async function AdminPlanningCenterPage({
     );
   }
 
-  if (user.role !== "admin") {
+  if (!hasCapability(user.role, "member-entries:manage")) {
     return (
       <main className="plc-page">
         <section className="plc-panel mx-auto max-w-3xl p-6">
@@ -81,23 +67,32 @@ export default async function AdminPlanningCenterPage({
     );
   }
 
-  const [credentials, users, fieldMap, queueStats] = await Promise.all([
-    getPlanningCenterCredentials(),
-    listUsersForAdminLinking(),
-    listPlanningCenterFieldMap(),
-    getSyncQueueStats()
+  const canViewDetailedProgress = hasCapability(user.role, "member-progress:read");
+  const canManageDirectory = hasCapability(user.role, "directory:manage");
+  const canAddPeople = hasCapability(user.role, "people:add");
+
+  const memberSearch = (params?.member_q ?? "").trim();
+  const memberPage = Math.max(1, Number(params?.member_page ?? "1") || 1);
+  const memberPageSize = 25;
+  const memberOffset = (memberPage - 1) * memberPageSize;
+
+  const [credentials, users, memberTotal] = await Promise.all([
+    canAddPeople ? getPlanningCenterCredentials() : Promise.resolve({ configured: false }),
+    canViewDetailedProgress || canManageDirectory
+      ? listUsersForAdminLinking(memberPageSize, memberOffset, memberSearch)
+      : listUsersForStaffEntry(memberPageSize, memberOffset, memberSearch, canViewDetailedProgress),
+    countUsersForAdminLinking(memberSearch)
   ]);
 
   return (
     <main className="plc-page">
       <div className="plc-shell-wide space-y-8">
         <header className="space-y-3">
-          <p className="plc-eyebrow">Admin · Planning Center</p>
-          <h1 className="plc-title">Connect people, not IDs for members.</h1>
+          <p className="plc-eyebrow">Staff tools · Participant updates</p>
+          <h1 className="plc-title">Record participant updates.</h1>
           <p className="plc-copy max-w-3xl">
-            Store API credentials, look up each app user in Planning Center by email, and pull household members
-            (Family) and small-group members (Friends). Members never see or enter Planning Center IDs. Manual ID
-            override is admin-only.
+              Search for a participant to record prayer minutes or view and update their campaign pledge.
+              {canViewDetailedProgress ? " Admins can also review detailed campaign progress." : " Prayer progress for other participants is not shown to Prayer Team members."}
           </p>
           {params?.saved === "1" ? (
             <p className="text-sm font-black uppercase text-yellow">API credentials saved and verified.</p>
@@ -129,269 +124,66 @@ export default async function AdminPlanningCenterPage({
               {params.errored ?? "0"}
             </p>
           ) : null}
+          {params?.user_added === "1" ? (
+            <p className="text-sm font-black uppercase text-yellow">
+              {params.created === "1" ? "User created" : "User already in campaign"}
+              {params.name ? `: ${params.name}` : ""}.
+            </p>
+          ) : null}
+          {params?.session_saved === "1" ? (
+            <p className="text-sm font-black uppercase text-yellow">Prayer session recorded (PCO totals updated if linked).</p>
+          ) : null}
+          {params?.pledge_saved === "1" ? (
+            <p className="text-sm font-black uppercase text-yellow">Pledge saved (PCO totals updated if linked).</p>
+          ) : null}
           <FormBanner error={params?.error} />
         </header>
 
-        <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-          <article className="plc-panel p-6">
-            <h2 className="text-2xl font-black uppercase text-white">API credentials</h2>
-            <p className="plc-copy mt-2">
-              Personal Access Token Application ID and Secret from Planning Center. Status:{" "}
-              <span className="text-yellow">{credentials.configured ? "configured" : "missing"}</span>
-              {credentials.source !== "none" ? ` (${credentials.source})` : ""}.
-            </p>
-            <form action={savePcoCredentialsAction} className="mt-5 space-y-4">
-              <label className="plc-label block space-y-2">
-                <span>Application ID</span>
-                <input
-                  required
-                  name="app_id"
-                  defaultValue={credentials.appId ?? ""}
-                  className="plc-input w-full px-4 py-3 font-mono text-sm"
-                  autoComplete="off"
-                />
-              </label>
-              <label className="plc-label block space-y-2">
-                <span>Secret</span>
-                <input
-                  required
-                  name="secret"
-                  type="password"
-                  defaultValue={credentials.secret ?? ""}
-                  className="plc-input w-full px-4 py-3 font-mono text-sm"
-                  autoComplete="off"
-                />
-              </label>
-              <button className="plc-button">Save & test connection</button>
-            </form>
-          </article>
-
-          <article className="plc-panel p-6">
-            <h2 className="text-2xl font-black uppercase text-white">How sync works</h2>
-            <ol className="plc-copy mt-4 list-decimal space-y-3 pl-5">
-              <li>Save valid Planning Center API credentials.</li>
-              <li>
-                Click <strong className="text-white">Sync user</strong> to look up that person by email in Planning
-                Center.
-              </li>
-              <li>
-                Household members land under Family. Friends come from groups whose group type id is
-                428832, 428831, or 428830 (
-                <code className="text-white/70">/groups/v2/people/&#123;id&#125;/groups</code>
-                ), using the same API credentials.
-              </li>
-              <li>Use manual ID override only when email lookup fails.</li>
-              <li>Members only see names to pray for—never Planning Center IDs.</li>
-            </ol>
-          </article>
-        </section>
-
-        <section className="grid gap-6 lg:grid-cols-2">
-          <article className="plc-panel p-6">
-            <h2 className="text-2xl font-black uppercase text-white">Bulk sync</h2>
-            <p className="plc-copy mt-2">
-              Refresh Family/Friends for every linked person, then try email lookup for unlinked accounts (skips guest
-              emails).
-            </p>
-            <form action={bulkSyncPlanningCenterAction} className="mt-5">
-              <button className="plc-button" disabled={!credentials.configured}>
-                Sync all users
-              </button>
-            </form>
-          </article>
-
-          <article className="plc-panel p-6">
-            <h2 className="text-2xl font-black uppercase text-white">Writeback queue</h2>
-            <p className="plc-copy mt-2">
-              Prayer sessions enqueue last-prayed / progress jobs. Nothing is sent to Planning Center until a field map
-              row has a field definition ID and is enabled.
-            </p>
-            <p className="mt-3 text-sm text-white/55">
-              Pending {queueStats.pending} · Done {queueStats.done} · Skipped {queueStats.skipped} · Errors{" "}
-              {queueStats.error}
-            </p>
-            <form action={processSyncQueueAction} className="mt-5">
-              <button className="plc-button-secondary" disabled={!credentials.configured}>
-                Process pending jobs
-              </button>
-            </form>
-          </article>
-        </section>
-
-        <section className="plc-panel p-6 space-y-5">
-          <div>
-            <h2 className="text-2xl font-black uppercase text-white">Custom field map</h2>
-            <p className="plc-copy mt-2">
-              Optional writeback to Planning Center person custom fields. Leave disabled until the church confirms field
-              definition IDs in People.
-            </p>
-          </div>
-          <div className="space-y-4">
-            {fieldMap.map((field) => (
-              <form
-                key={field.fieldKey}
-                action={saveFieldMapAction}
-                className="grid gap-3 rounded-xl border border-white/10 bg-black/25 p-4 md:grid-cols-[1fr_1fr_auto_auto] md:items-end"
-              >
-                <input type="hidden" name="field_key" value={field.fieldKey} />
-                <div>
-                  <p className="text-sm font-black uppercase text-white">{field.label}</p>
-                  <p className="mt-1 font-mono text-xs text-white/40">{field.fieldKey}</p>
-                </div>
-                <label className="plc-label block space-y-2">
-                  <span>PCO field definition ID</span>
-                  <input
-                    name="planning_center_field_id"
-                    defaultValue={field.planningCenterFieldId ?? ""}
-                    placeholder="FieldDefinition id"
-                    className="plc-input w-full px-3 py-2 font-mono text-sm"
-                  />
-                </label>
-                <label className="flex items-center gap-2 pb-2 text-sm text-white/70">
-                  <input
-                    name="enabled"
-                    type="checkbox"
-                    defaultChecked={field.enabled}
-                    className="plc-checkbox"
-                  />
-                  Enabled
-                </label>
-                <button className="plc-button-secondary">Save</button>
-              </form>
-            ))}
-          </div>
-        </section>
-
         <section className="space-y-4">
-          <div>
-            <h2 className="text-2xl font-black uppercase text-white">Users</h2>
-            <p className="plc-copy mt-1 max-w-2xl">
-              Grant admin access for church staff (or remove it).{" "}
-              <span className="text-paper/80">@blackhawkministries.org</span> emails are also auto-promoted on sign-in.
-            </p>
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-black uppercase text-white">Participants</h2>
+              <p className="plc-copy mt-1 max-w-3xl">Search people, review the information allowed for your role, then record a reported update.</p>
+            </div>
+            <p className="text-sm text-white/70">Showing {memberTotal === 0 ? 0 : memberOffset + 1}–{Math.min(memberOffset + users.length, memberTotal)} of {memberTotal}</p>
           </div>
-          {users.map((entry) => (
-            <article key={entry.id} className="plc-panel p-5">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-xl font-black text-paper">{entry.name}</h3>
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide ${
-                        entry.role === "admin"
-                          ? "bg-yellow/20 text-yellow"
-                          : entry.role === "prayer_team"
-                            ? "border border-yellow/40 text-yellow"
-                            : "border border-paper/15 text-muted"
-                      }`}
-                    >
-                      {entry.role.replace(/_/g, " ")}
-                    </span>
-                    {entry.id === user.id ? (
-                      <span className="text-[10px] font-black uppercase tracking-wide text-muted">You</span>
-                    ) : null}
-                  </div>
-                  <p className="text-sm text-muted">{entry.email}</p>
-                  <p className="mt-2 text-xs uppercase tracking-[0.16em] text-white/40">
-                    {entry.planningCenterPersonId
-                      ? `Linked · status ${entry.planningCenterSyncStatus} · last sync ${formatDate(entry.planningCenterLastSyncedAt)}`
-                      : "Not linked"}
-                  </p>
-                  {entry.planningCenterPersonId ? (
-                    <p className="mt-1 font-mono text-xs text-white/35">
-                      PCO person {entry.planningCenterPersonId}
-                      {entry.planningCenterDisplayName ? ` · ${entry.planningCenterDisplayName}` : ""}
-                    </p>
-                  ) : null}
-                  <p className="mt-2 text-sm text-white/60">
-                    Family: {entry.familyCount} · Friends: {entry.friendsCount}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {entry.role !== "admin" ? (
-                    <form action={setUserRoleAction}>
-                      <input type="hidden" name="user_id" value={entry.id} />
-                      <input type="hidden" name="role" value="admin" />
-                      <button className="plc-button">Make admin</button>
-                    </form>
-                  ) : (
-                    <form action={setUserRoleAction}>
-                      <input type="hidden" name="user_id" value={entry.id} />
-                      <input type="hidden" name="role" value="member" />
-                      <button className="plc-button-secondary" type="submit">
-                        Remove admin
-                      </button>
-                    </form>
-                  )}
-                  {entry.role !== "prayer_team" && entry.role !== "admin" ? (
-                    <form action={setUserRoleAction}>
-                      <input type="hidden" name="user_id" value={entry.id} />
-                      <input type="hidden" name="role" value="prayer_team" />
-                      <button className="plc-button-secondary" type="submit">
-                        Prayer team
-                      </button>
-                    </form>
-                  ) : null}
-                  {entry.role === "prayer_team" ? (
-                    <form action={setUserRoleAction}>
-                      <input type="hidden" name="user_id" value={entry.id} />
-                      <input type="hidden" name="role" value="member" />
-                      <button className="plc-button-secondary" type="submit">
-                        Remove prayer team
-                      </button>
-                    </form>
-                  ) : null}
-                  <form action={syncUserAction}>
-                    <input type="hidden" name="user_id" value={entry.id} />
-                    <button className="plc-button-secondary" disabled={!credentials.configured}>
-                      Sync user
-                    </button>
-                  </form>
-                  {entry.planningCenterPersonId ? (
-                    <>
-                      <form action={refreshUserAction}>
-                        <input type="hidden" name="user_id" value={entry.id} />
-                        <button className="plc-button-secondary" disabled={!credentials.configured}>
-                          Refresh lists
-                        </button>
-                      </form>
-                      <form action={unlinkUserAction}>
-                        <input type="hidden" name="user_id" value={entry.id} />
-                        <button className="plc-button-secondary">Unlink</button>
-                      </form>
-                    </>
-                  ) : null}
-                </div>
-              </div>
-
-              <details className="mt-4 rounded-lg border border-white/10 bg-black/30 p-4">
-                <summary className="cursor-pointer text-sm font-black uppercase text-yellow">
-                  Admin manual ID override
-                </summary>
-                <form action={manualPersonOverrideAction} className="mt-4 grid gap-3 md:grid-cols-4">
-                  <input type="hidden" name="user_id" value={entry.id} />
-                  <input
-                    required
-                    name="person_id"
-                    defaultValue={entry.planningCenterPersonId ?? ""}
-                    placeholder="PCO person ID"
-                    className="plc-input px-3 py-2 font-mono text-sm"
-                  />
-                  <input
-                    name="display_name"
-                    defaultValue={entry.planningCenterDisplayName ?? entry.name}
-                    placeholder="Display name"
-                    className="plc-input px-3 py-2"
-                  />
-                  <label className="flex items-center gap-2 text-sm text-white/70">
-                    <input name="pull_lists" type="checkbox" defaultChecked className="plc-checkbox" />
-                    Pull Family/Friends after save
-                  </label>
-                  <button className="plc-button-secondary">Save override</button>
-                </form>
-              </details>
-            </article>
-          ))}
+          <div className="flex flex-wrap gap-3">
+            <form method="get" action="/admin/planning-center" className="flex min-w-[18rem] flex-1 flex-wrap gap-3">
+              <input name="member_q" defaultValue={memberSearch} placeholder="Search a name or email" className="plc-input min-w-[16rem] flex-1 px-4 py-3" />
+              <button className="plc-button" type="submit">Search people</button>
+            </form>
+            {canAddPeople ? <AddPlanningCenterPerson credentialsConfigured={credentials.configured} /> : null}
+          </div>
+          <div className="overflow-x-auto rounded-xl border border-white/10">
+            <table className="w-full min-w-[48rem] text-left text-sm">
+              <thead className="bg-black/30 text-xs font-black uppercase tracking-wide text-white/70">
+                <tr><th className="px-4 py-3">Person</th>{canManageDirectory ? <th className="px-4 py-3">Role</th> : null}{canViewDetailedProgress ? <th className="px-4 py-3">Campaign prayer</th> : null}<th className="px-4 py-3">Campaign pledge</th>{canManageDirectory ? <th className="px-4 py-3">Directory connection</th> : null}<th className="px-4 py-3">Options</th></tr>
+              </thead>
+              <tbody>
+                {users.map((entry) => {
+                  const linkedEntry = "totalMinutesPrayed" in entry ? entry as LinkedUserSummary : null;
+                  const staffEntry = "hasPledge" in entry ? entry : null;
+                  return (
+                  <tr key={entry.id} className="border-t border-white/10 bg-surface/50 align-top">
+                    <td className="px-4 py-4"><p className="font-black text-white">{entry.name}{entry.id === user.id ? " (you)" : ""}</p><p className="mt-1 text-white/65">{entry.email}</p></td>
+                    {canManageDirectory && linkedEntry ? <td className="px-4 py-4 capitalize text-white/80">{linkedEntry.role.replace(/_/g, " ")}</td> : null}
+                    {canViewDetailedProgress && linkedEntry ? <td className="px-4 py-4 font-black text-yellow">{formatCount(linkedEntry.totalMinutesPrayed)}</td> : null}
+                    <td className="px-4 py-4 text-white/80">{linkedEntry ? linkedEntry.minutesPerWeek ? `${formatCount(linkedEntry.minutesPerWeek)} min/week pace` : "No active pledge" : staffEntry?.hasPledge ? "Pledge recorded" : "No active pledge"}{canViewDetailedProgress && linkedEntry ? <span className="mt-1 block text-xs text-white/55">{formatCount(linkedEntry.totalMinutesPledged)} campaign minutes committed</span> : null}</td>
+                    {canManageDirectory && linkedEntry ? <td className="px-4 py-4 text-white/70">{linkedEntry.planningCenterPersonId ? "Connected" : "Not connected"}<span className="mt-1 block text-xs text-white/55">Family {linkedEntry.familyCount} · Friends {linkedEntry.friendsCount}</span></td> : null}
+                    <td className="px-4 py-4">{canManageDirectory && linkedEntry ? <MemberEditor entry={linkedEntry} credentialsConfigured={credentials.configured} /> : staffEntry ? <StaffEntryEditor entry={staffEntry} /> : null}</td>
+                  </tr>
+                  );
+                })}
+                {users.length === 0 ? <tr><td colSpan={6} className="px-4 py-8 text-center text-white/70">No people match this search.</td></tr> : null}
+              </tbody>
+            </table>
+          </div>
+          {memberTotal > memberPageSize ? (
+            <div className="flex flex-wrap gap-3">
+              {memberPage > 1 ? <Link href={`/admin/planning-center?member_q=${encodeURIComponent(memberSearch)}&member_page=${memberPage - 1}`} className="plc-button-secondary">Previous people</Link> : null}
+              {memberOffset + users.length < memberTotal ? <Link href={`/admin/planning-center?member_q=${encodeURIComponent(memberSearch)}&member_page=${memberPage + 1}`} className="plc-button-secondary">Next people</Link> : null}
+            </div>
+          ) : null}
         </section>
       </div>
     </main>

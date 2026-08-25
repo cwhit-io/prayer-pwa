@@ -1,0 +1,9 @@
+[Unit]
+Description=Run Fort Wayne Prays notification scheduler
+After=prayer-pwa.service
+Requires=prayer-pwa.service
+
+[Service]
+Type=oneshot
+LoadCredential=notification-scheduler-secret:/home/blackhawk/.config/prayer-pwa/notification-scheduler-secret
+ExecStart=/usr/bin/bash -c 'secret=$(<"$CREDENTIALS_DIRECTORY/notification-scheduler-secret"); /usr/bin/curl --fail --silent --show-error --max-time 900 --request POST --header "Authorization: Bearer $secret" http://127.0.0.1:3000/api/internal/notifications/run'

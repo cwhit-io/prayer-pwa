@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { FormBanner } from "@/app/components/form-banner";
-import { getCurrentUser } from "@/lib/auth";
+import { FormSubmitButton } from "@/app/components/form-submit-button";
+import { getCurrentUser, hasCapability } from "@/lib/auth";
 import { listPromptTags } from "@/lib/tags";
 import { createCategoryAction, setCategoryStatusAction, updateCategoryAction } from "./actions";
 
@@ -60,7 +61,7 @@ export default async function AdminCategoriesPage({
     );
   }
 
-  if (user.role !== "admin") {
+  if (!hasCapability(user.role, "prayer-content:manage")) {
     return (
       <main className="plc-page">
         <section className="plc-panel mx-auto max-w-3xl p-6">
@@ -80,13 +81,12 @@ export default async function AdminCategoriesPage({
     <main className="plc-page">
       <div className="plc-shell-wide space-y-8">
         <header className="space-y-3">
-          <p className="plc-eyebrow">Admin · Content</p>
-          <h1 className="plc-title">Shared tags</h1>
+          <p className="plc-eyebrow">Staff admin · Prayer content · Topics</p>
+          <h1 className="plc-title">Organize prayer topics.</h1>
           <p className="plc-copy max-w-3xl">
-            Topic tags only (not Adoration / Confession / Thanksgiving / Supplication — those are steps). Ideal
-            coverage for each tag: at least one <strong className="text-paper/80">campaign (S)</strong> prompt and one
-            each of <strong className="text-paper/80">A</strong>, <strong className="text-paper/80">C</strong>, and{" "}
-            <strong className="text-paper/80">T</strong> so PRAY can link steps by tag.
+            Topics help staff organize prompts and help the prayer guide connect related ideas. For a complete guide,
+            give each topic at least one campaign prompt plus one prompt for Adoration, Confession, Thanksgiving, and
+            Supplication.
           </p>
           <FormBanner
             error={params?.error}
@@ -96,20 +96,20 @@ export default async function AdminCategoriesPage({
 
         <section className="grid gap-4 sm:grid-cols-3">
           <article className="plc-panel p-5">
-            <p className="text-xs font-black uppercase text-muted">Active tags</p>
+            <p className="text-xs font-black uppercase text-muted">Active topics</p>
             <p className="mt-2 text-3xl font-black text-paper">{activeTags.length}</p>
           </article>
           <article className="plc-panel p-5">
-            <p className="text-xs font-black uppercase text-muted">Full coverage (S+A+C+T)</p>
+            <p className="text-xs font-black uppercase text-muted">Topics with all four ACTS steps</p>
             <p className="mt-2 text-3xl font-black text-success">
               {completeCount}
               <span className="text-lg text-muted"> / {activeTags.length}</span>
             </p>
           </article>
           <article className="plc-panel p-5">
-            <p className="text-xs font-black uppercase text-muted">Gaps to fill</p>
+            <p className="text-xs font-black uppercase text-muted">Topics needing prompts</p>
             <p className="mt-2 text-3xl font-black text-danger">{incomplete.length}</p>
-            <p className="mt-1 text-xs text-muted">Use prompts/ACTS admin — we don’t auto-create content.</p>
+            <p className="mt-1 text-xs text-muted">Add or update prompts in Prayer prompts or the ACTS guide.</p>
           </article>
         </section>
 
@@ -188,7 +188,9 @@ export default async function AdminCategoriesPage({
                   Active (shown in prompt/ACTS forms and archive filters)
                 </label>
               ) : null}
-              <button className="plc-button">{editing ? "Update tag" : "Add tag"}</button>
+               <FormSubmitButton pendingLabel={editing ? "Updating topic…" : "Adding topic…"}>
+                 {editing ? "Update topic" : "Add topic"}
+               </FormSubmitButton>
             </form>
           </section>
 

@@ -22,16 +22,16 @@ const config: Config = {
           hover: "#ffe04a",
           active: "#e8b900"
         },
-        night: "#151515",
-        "night-deep": "#111111",
-        surface: {
-          DEFAULT: "#1d1d1d",
-          raised: "#252525",
-          hover: "#2c2c2c"
-        },
-        paper: "#f2f0eb",
-        muted: "#b8b8b8",
-        scripture: "#e8e4db",
+         night: "#101010",
+         "night-deep": "#0b0b0b",
+         surface: {
+           DEFAULT: "#000000",
+           raised: "#141414",
+           hover: "#1d1d1d"
+         },
+         paper: "#f5f5f5",
+         muted: "#bdbdbd",
+         scripture: "#e5e7eb",
         success: "#55c878",
         warning: "#f2b900",
         danger: "#e46a6a",

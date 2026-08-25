@@ -6,8 +6,14 @@ import { getRandomActsPrompt, type ActsStepLetter } from "@/lib/acts-prompts";
 import { getCurrentUser } from "@/lib/auth";
 import { redirectWithError, redirectWithQuery, rethrowIfNextNavigation } from "@/lib/form-action";
 import { createPrayerSession } from "@/lib/prayer-sessions";
+import { markPromptPrayed } from "@/lib/prompts";
+import { markRequestPrayed } from "@/lib/prayer-requests";
 import { getWeightedSupplication, type SupplicationItem } from "@/lib/supplication";
 import { buildYouVersionEsvUrl } from "@/lib/youversion";
+import { query } from "@/lib/postgres";
+
+const MAX_SESSION_MINUTES = 24 * 60;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function readText(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -17,6 +23,10 @@ function readText(formData: FormData, key: string) {
 function readDate(value: string, fallback: Date) {
   const date = value ? new Date(value) : fallback;
   return Number.isNaN(date.getTime()) ? fallback : date;
+}
+
+function readPrayerDate(value: string, fallback: Date) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? readDate(`${value}T12:00:00Z`, fallback) : readDate(value, fallback);
 }
 
 export type RefreshableStepPrompt = {
@@ -91,10 +101,12 @@ export async function refreshStepPromptAction(
   }
 ): Promise<RefreshableStepPrompt | null> {
   try {
+    const user = await getCurrentUser();
+    const canUseCommunityRequests = Boolean(user?.planningCenterPersonId);
     if (step === "S") {
       return toRefreshableSupplication(
         await getWeightedSupplication(excludeId, {
-          includeRequests: options?.includeRequests !== false
+          includeRequests: canUseCommunityRequests && options?.includeRequests !== false
         })
       );
     }
@@ -102,8 +114,8 @@ export async function refreshStepPromptAction(
     if (step === "A" || step === "C" || step === "T") {
       const { resolvePreferredTagIds } = await import("@/lib/tags");
       const preferredTagIds = await resolvePreferredTagIds({
-        kind: options?.focusKind,
-        id: options?.focusId,
+        kind: options?.focusKind === "request" && !canUseCommunityRequests ? null : options?.focusKind,
+        id: options?.focusKind === "request" && !canUseCommunityRequests ? null : options?.focusId,
         tagNames: options?.preferredTagNames,
         category: options?.preferredCategory
       });
@@ -129,6 +141,9 @@ export async function markFocusPrayedAction(input: {
 
   try {
     if (input.kind === "request") {
+      if (!user.planningCenterPersonId) {
+        throw new Error("Connect your church profile before praying from the community board.");
+      }
       const { markRequestPrayed } = await import("@/lib/prayer-requests");
       const result = await markRequestPrayed({ requestId: input.id, userId: user.id });
       revalidatePath("/requests");
@@ -150,43 +165,133 @@ export async function markFocusPrayedAction(input: {
   }
 }
 
-export async function logPrayerSessionAction(formData: FormData) {
+async function savePrayerSession(formData: FormData) {
   const user = await getCurrentUser();
-
-  try {
     const now = new Date();
     const entryType = readText(formData, "entry_type") === "timer" ? "timer" : "manual";
     const minutes = Number(readText(formData, "minutes"));
+    const roundedMinutes = Math.round(minutes);
+    const elapsedSeconds = Number(readText(formData, "elapsed_seconds"));
+    const clientSessionId = readText(formData, "client_session_id") || null;
     const promptIds = formData
       .getAll("prompt_id")
       .map((value) => (typeof value === "string" ? value.trim() : ""));
     const promptId = promptIds.filter(Boolean).at(-1) || null;
-    const endedAt = readDate(readText(formData, "ended_at"), now);
-    const startedAt = readDate(
+    const requestId = readText(formData, "request_id") || null;
+    const focusLabel = readText(formData, "focus_label") || null;
+    let endedAt = readDate(readText(formData, "ended_at"), now);
+    let startedAt = readPrayerDate(
       readText(formData, "started_at"),
-      new Date(endedAt.getTime() - Math.max(1, minutes) * 60_000)
+      new Date(endedAt.getTime() - Math.max(1, Number.isFinite(minutes) ? minutes : 1) * 60_000)
     );
     const notes = user ? readText(formData, "notes") || null : null;
 
-    if (!Number.isFinite(minutes) || minutes <= 0) {
-      redirectWithError("/log", "Prayer minutes must be greater than zero.");
+    if (!Number.isFinite(minutes) || roundedMinutes <= 0) {
+      throw new Error("Prayer minutes must be greater than zero.");
+    }
+    if (roundedMinutes > MAX_SESSION_MINUTES) {
+      throw new Error("Prayer sessions cannot exceed 24 hours.");
+    }
+    if (entryType === "timer") {
+      if (!Number.isFinite(elapsedSeconds) || elapsedSeconds <= 0 || elapsedSeconds > MAX_SESSION_MINUTES * 60) {
+        throw new Error("This timer duration is invalid.");
+      }
+      if (roundedMinutes !== Math.ceil(elapsedSeconds / 60)) {
+        throw new Error("This timer duration does not match its prayer minutes.");
+      }
+      endedAt = now;
+      startedAt = new Date(now.getTime() - Math.floor(elapsedSeconds) * 1000);
+    }
+    if (clientSessionId && !UUID_PATTERN.test(clientSessionId)) {
+      throw new Error("This prayer session could not be identified.");
+    }
+    if (promptId && requestId) {
+      throw new Error("A prayer session cannot use both a prompt and a request.");
+    }
+    if (promptId) {
+      const allowedPrompt = await query<{ id: string }>(
+        `select id from prayer_prompts where id = $1 and is_active = true and publish_date <= current_date limit 1`,
+        [promptId]
+      );
+      if (!allowedPrompt.rows[0]) {
+        throw new Error("That prayer prompt is not currently available.");
+      }
+    }
+    if (requestId) {
+      if (!user?.planningCenterPersonId) {
+        throw new Error("Connect your church profile before praying from the community board.");
+      }
+      const allowedRequest = await query<{ id: string }>(
+        `select id from prayer_requests
+         where id = $1
+           and visibility = 'church_anonymous'
+           and status in ('open', 'praying', 'answered')
+           and board_moderation = 'published'
+           and (publish_at is null or publish_at <= now())
+         limit 1`,
+        [requestId]
+      );
+      if (!allowedRequest.rows[0]) {
+        throw new Error("That prayer request is not available on the community board.");
+      }
+    }
+    if (startedAt.getTime() > endedAt.getTime()) {
+      throw new Error("Prayer session start time must be before its end time.");
     }
 
-    await createPrayerSession({
+    const session = await createPrayerSession({
+      clientSessionId,
       userId: user?.id ?? null,
       promptId,
-      minutes: Math.round(minutes),
+      requestId,
+      focusLabel,
+      minutes: roundedMinutes,
       startedAt,
       endedAt,
       entryType,
       notes
     });
 
+    // Count a focus only after prayer time has been saved successfully. An
+    // idempotent timer retry returns no row and therefore cannot count twice.
+    if (session?.id && user) {
+      try {
+        if (requestId) {
+          await markRequestPrayed({ requestId, userId: user.id });
+        } else if (promptId) {
+          await markPromptPrayed({ promptId, userId: user.id });
+        }
+      } catch {
+        // The prayer session is authoritative; a secondary count must not make a successful save look failed.
+      }
+    }
+
     revalidatePath("/");
     revalidatePath("/auth");
     revalidatePath("/log");
 
-    if (user) {
+    return { signedIn: Boolean(user), minutes: roundedMinutes };
+}
+
+export async function savePrayerSessionAction(formData: FormData): Promise<
+  { ok: true; signedIn: boolean; minutes: number } | { ok: false; error: string }
+> {
+  try {
+    const result = await savePrayerSession(formData);
+    return { ok: true, ...result };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Could not save prayer session."
+    };
+  }
+}
+
+export async function logPrayerSessionAction(formData: FormData) {
+  try {
+    const result = await savePrayerSession(formData);
+
+    if (result.signedIn) {
       redirectWithQuery("/auth", { session_saved: "1" });
     }
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { FormBanner } from "@/app/components/form-banner";
-import { getCurrentUser } from "@/lib/auth";
+import { FormSubmitButton } from "@/app/components/form-submit-button";
+import { getCurrentUser, hasCapability } from "@/lib/auth";
 import { getAdminPrompts } from "@/lib/prompts";
 import { getActivePromptTagNames } from "@/lib/tags";
 import {
@@ -48,7 +49,7 @@ export default async function AdminPromptsPage({
     );
   }
 
-  if (user.role !== "admin") {
+  if (!hasCapability(user.role, "prayer-content:manage")) {
     return (
       <main className="plc-page">
         <section className="plc-panel mx-auto max-w-3xl p-6">
@@ -72,10 +73,14 @@ export default async function AdminPromptsPage({
     <main className="plc-page">
       <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[0.9fr_1.1fr]">
         <section className="plc-panel p-6">
-          <p className="plc-eyebrow">Admin</p>
-          <h1 className="mt-2 text-4xl font-black uppercase text-white">
-            {editing ? "Edit prayer prompt" : "Prayer prompt manager"}
-          </h1>
+           <p className="plc-eyebrow">Staff admin · Prayer content · Prayer prompts</p>
+           <h1 className="mt-2 text-4xl font-black uppercase text-white">
+             {editing ? "Edit prayer prompt" : "Manage prayer prompts"}
+           </h1>
+           <p className="plc-copy mt-2">
+             Create and update the prayer ideas people can choose from. Each prompt should give someone a clear,
+             encouraging place to begin praying.
+           </p>
           <div className="mt-3">
             <FormBanner
               error={params?.error}
@@ -109,16 +114,16 @@ export default async function AdminPromptsPage({
           </div>
 
           <form action={importCampaignPromptsCsvAction} className="mt-4 space-y-3 rounded-xl border border-white/10 bg-black/25 p-4">
-            <p className="text-sm font-black uppercase text-white/50">Import from CSV</p>
-            <p className="text-xs text-muted">
-              Columns: title, body, <span className="text-paper/80">tags</span> (multiple with{" "}
+             <p className="text-sm font-black uppercase text-white/65">Advanced: import prompts from a file</p>
+             <p className="text-xs text-muted">
+               Use this only when loading many prompts at once. The file must include: title, body, <span className="text-paper/80">topics</span> (multiple with{" "}
               <span className="text-paper/80">|</span> or <span className="text-paper/80">;</span>), optional
               scripture_reference, scripture_text, publish_date, is_active. Legacy{" "}
               <span className="text-paper/80">category</span> still works and merges with tags. New tag names are
               created automatically.
             </p>
             <fieldset className="space-y-2">
-              <legend className="plc-label">Import mode</legend>
+               <legend className="plc-label">What should happen to existing prompts?</legend>
               <label className="flex items-start gap-3 rounded-xl border border-paper/10 bg-night-deep/50 p-3 text-sm text-paper/80">
                 <input
                   type="radio"
@@ -128,7 +133,7 @@ export default async function AdminPromptsPage({
                   className="plc-checkbox mt-0.5"
                 />
                 <span>
-                  <span className="block font-black uppercase text-paper">Append</span>
+                   <span className="block font-black uppercase text-paper">Add these prompts</span>
                   <span className="mt-0.5 block text-xs text-muted">
                     Add these rows; keep existing prompts and their tags.
                   </span>
@@ -137,7 +142,7 @@ export default async function AdminPromptsPage({
               <label className="flex items-start gap-3 rounded-xl border border-paper/10 bg-night-deep/50 p-3 text-sm text-paper/80">
                 <input type="radio" name="import_mode" value="replace" className="plc-checkbox mt-0.5" />
                 <span>
-                  <span className="block font-black uppercase text-paper">Replace all</span>
+                   <span className="block font-black uppercase text-paper">Replace all prompts</span>
                   <span className="mt-0.5 block text-xs text-muted">
                     Delete every campaign prompt, then import only this file.
                   </span>
@@ -145,7 +150,7 @@ export default async function AdminPromptsPage({
               </label>
             </fieldset>
             <label className="plc-label block space-y-2">
-              <span>CSV file</span>
+               <span>Prompt file (.csv)</span>
               <input
                 required
                 name="csv_file"
@@ -155,7 +160,7 @@ export default async function AdminPromptsPage({
               />
             </label>
             <button className="plc-button-secondary" type="submit">
-              Upload CSV
+               Upload prompt file
             </button>
           </form>
 
@@ -170,7 +175,7 @@ export default async function AdminPromptsPage({
               <input required name="title" defaultValue={editing?.title ?? ""} className="plc-input w-full px-4 py-3" />
             </label>
             <fieldset className="space-y-2">
-              <legend className="plc-label">Tags (select one or more)</legend>
+               <legend className="plc-label">Topics (select one or more)</legend>
               <div className="grid max-h-48 gap-2 overflow-y-auto rounded-xl border border-paper/10 bg-night-deep/40 p-3 sm:grid-cols-2">
                 {tagOptions.length === 0 ? (
                   <p className="text-sm text-muted">Add tags under Content → Tags first.</p>
@@ -241,7 +246,9 @@ export default async function AdminPromptsPage({
               />
               Publish this prompt
             </label>
-            <button className="plc-button">{editing ? "Update prompt" : "Save prompt"}</button>
+             <FormSubmitButton pendingLabel={editing ? "Updating prompt…" : "Saving prompt…"}>
+               {editing ? "Update prompt" : "Save prompt"}
+             </FormSubmitButton>
           </form>
         </section>
 

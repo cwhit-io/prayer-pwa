@@ -1,13 +1,13 @@
 import { listAllActsPromptsForExport } from "@/lib/acts-prompts";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, hasCapability } from "@/lib/auth";
 import { rowsToCsv } from "@/lib/csv";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   const user = await getCurrentUser();
-  if (!user || user.role !== "admin") {
-    return new Response("Admin access required.", { status: 403 });
+  if (!user || !hasCapability(user.role, "prayer-content:manage")) {
+    return new Response("Prayer content access required.", { status: 403 });
   }
 
   const prompts = await listAllActsPromptsForExport();

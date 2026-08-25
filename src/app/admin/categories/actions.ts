@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, hasCapability } from "@/lib/auth";
 import {
   createPromptCategory,
   setPromptCategoryActive,
@@ -15,13 +15,13 @@ function readText(formData: FormData, key: string) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-async function requireAdmin() {
+async function requirePrayerContentManager() {
   const user = await getCurrentUser();
   if (!user) {
     redirect("/auth");
   }
-  if (user.role !== "admin") {
-    redirectWithError("/admin", "Admin access is required.");
+  if (!hasCapability(user.role, "prayer-content:manage")) {
+    redirectWithError("/admin", "Prayer content access is required.");
   }
   return user;
 }
@@ -36,7 +36,7 @@ function revalidateCategoryPaths() {
 
 export async function createCategoryAction(formData: FormData) {
   try {
-    await requireAdmin();
+    await requirePrayerContentManager();
     const name = readText(formData, "name");
     if (!name) {
       redirectWithError("/admin/categories", "Tag name is required.");
@@ -59,7 +59,7 @@ export async function createCategoryAction(formData: FormData) {
 
 export async function updateCategoryAction(formData: FormData) {
   try {
-    await requireAdmin();
+    await requirePrayerContentManager();
     const id = readText(formData, "id");
     const name = readText(formData, "name");
     const sortOrder = Number(readText(formData, "sort_order") || "0");
@@ -89,7 +89,7 @@ export async function updateCategoryAction(formData: FormData) {
 
 export async function setCategoryStatusAction(formData: FormData) {
   try {
-    await requireAdmin();
+    await requirePrayerContentManager();
     const id = readText(formData, "id");
     const isActive = readText(formData, "is_active") === "true";
 

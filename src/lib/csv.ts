@@ -1,4 +1,12 @@
+import { decodeImportedBytes, repairImportedText } from "@/lib/text";
+
 /** Minimal CSV helpers for admin import/export. */
+
+/** Read an admin CSV, recovering Windows-1252 smart punctuation instead of �. */
+export async function readCsvFile(file: File) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  return repairImportedText(decodeImportedBytes(bytes));
+}
 
 export function escapeCsvCell(value: string | number | boolean | null | undefined) {
   const text = value == null ? "" : String(value);

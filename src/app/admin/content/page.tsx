@@ -1,24 +1,24 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, hasCapability } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 const sections = [
   {
     href: "/admin/prompts",
-    title: "Campaign prompts",
-    body: "Supplication prompts on the PRAY page. CSV download and full replace upload."
+    title: "Prayer prompts",
+    body: "Manage the prompts people see when they need something to pray about."
   },
   {
     href: "/admin/acts",
     title: "ACTS guide",
-    body: "Adoration, Confession, and Thanksgiving prompts for the prayer guide."
+    body: "Manage the Adoration, Confession, Thanksgiving, and Supplication steps in the optional prayer guide."
   },
   {
     href: "/admin/categories",
-    title: "Tags",
-    body: "Shared tags for campaign prompts and ACTS guides (multi-select)."
+    title: "Topics",
+    body: "Create topics that help people and staff organize prayer prompts."
   }
 ];
 
@@ -27,7 +27,7 @@ export default async function AdminContentHubPage() {
   if (!user) {
     redirect("/auth");
   }
-  if (user.role !== "admin") {
+  if (!hasCapability(user.role, "prayer-content:manage")) {
     return (
       <main className="plc-page">
         <section className="plc-panel mx-auto max-w-3xl p-6">
@@ -41,10 +41,11 @@ export default async function AdminContentHubPage() {
     <main className="plc-page">
       <div className="plc-shell-wide space-y-8">
         <header className="space-y-3">
-          <p className="plc-eyebrow">Admin · Content</p>
-          <h1 className="plc-title">Prayer content.</h1>
+          <p className="plc-eyebrow">Staff admin · Prayer content</p>
+          <h1 className="plc-title">Manage what people see when they pray.</h1>
           <p className="plc-copy max-w-2xl">
-            Everything people see when they PRAY—campaign prompts, ACTS guide steps, and categories.
+            Choose one of the tools below. Start with Prayer prompts for the main content, or use the ACTS guide for the
+            four prayer steps.
           </p>
         </header>
 

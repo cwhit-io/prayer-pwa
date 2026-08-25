@@ -1,5 +1,6 @@
 import {
   applyMergeTags,
+  applyHtmlMergeTags,
   getCatalogEntry,
   NOTIFICATION_CATALOG,
   type NotificationAudience,
@@ -422,11 +423,20 @@ async function logSend(input: {
 }
 
 /** Multi-channel send with correct per-channel bodies + logging. */
+type DispatchResult = {
+  channel: NotificationChannel;
+  ok: boolean;
+  error?: string;
+  retryable?: boolean;
+  ambiguous?: boolean;
+};
+
 export async function dispatchManagedNotification(input: {
   key: string;
   email?: string | null;
   phone?: string | null;
   vars?: Record<string, string | number | null | undefined>;
+  meta?: Record<string, unknown>;
   force?: boolean;
 }) {
   await ensureNotificationSchema();
@@ -436,7 +446,7 @@ export async function dispatchManagedNotification(input: {
   }
 
   if (!managed.enabled && !managed.isSystem && !input.force) {
-    return { skipped: true as const, reason: "disabled" as const, results: [] as Array<{ channel: NotificationChannel; ok: boolean; error?: string }> };
+    return { skipped: true as const, reason: "disabled" as const, results: [] as DispatchResult[] };
   }
 
   const vars = {
@@ -447,10 +457,10 @@ export async function dispatchManagedNotification(input: {
 
   const subject = applyMergeTags(managed.emailSubject, vars);
   const text = applyMergeTags(managed.emailText, vars);
-  const html = applyMergeTags(managed.emailHtml, vars);
+  const html = applyHtmlMergeTags(managed.emailHtml, vars);
   const sms = applyMergeTags(managed.smsBody || managed.emailText, vars);
 
-  const results: Array<{ channel: NotificationChannel; ok: boolean; error?: string }> = [];
+  const results: DispatchResult[] = [];
 
   if (managed.supportsEmail && managed.emailEnabled && input.email) {
     const batch = await notifyUser({
@@ -469,12 +479,13 @@ export async function dispatchManagedNotification(input: {
         subject,
         status: result.ok ? "sent" : "failed",
         errorMessage: result.error ?? null,
-        meta: { force: Boolean(input.force) }
+        meta: { force: Boolean(input.force), ...input.meta }
       });
     }
   }
 
-  if (managed.supportsSms && managed.smsEnabled && input.phone && sms.trim()) {
+  // Congregational SMS is authorization-only. Campaign and event notifications are email-only.
+  if (input.key === "login_code" && managed.supportsSms && managed.smsEnabled && input.phone && sms.trim()) {
     const batch = await notifyUser({
       phone: input.phone,
       message: sms,
@@ -489,7 +500,7 @@ export async function dispatchManagedNotification(input: {
         subject: null,
         status: result.ok ? "sent" : "failed",
         errorMessage: result.error ?? null,
-        meta: { force: Boolean(input.force) }
+        meta: { force: Boolean(input.force), ...input.meta }
       });
     }
   }

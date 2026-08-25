@@ -8,15 +8,16 @@
 - Family = PCO households. Friends = groups with group type ids **428832 / 428831 / 428830** via `GET /groups/v2/people/{id}/groups`.
 - Dashboard/profile (`/auth`): 4 friends, household, church family (scrollable), pledge, recent prayer.
 - PRAY (`/log`): timer + ACTS, soft cap, guest minutes allowed.
-- **Public site:** [https://fortwayneprays.org](https://fortwayneprays.org) (Fort Wayne Prays · © Blackhawk Ministries).
-- **Production:** Next.js on port **3000**, not `next dev`. Cloudflare Tunnel already ingresses `fortwayneprays.org` → `http://10.10.96.138:3000` (same host).
+- **Public site:** [https://fortwayneprays.org](https://fortwayneprays.org) (canonical) and [https://prayfw.org](https://prayfw.org) (alias) · Fort Wayne Prays · © Blackhawk Ministries.
+- **Production:** Next.js on port **3000**, not `next dev`. Cloudflare Tunnel ingresses public hostnames → `http://10.10.96.138:3000` (same host).
 
 ## Production / domain
 
 | Item | Value |
 |------|--------|
-| Domain | `fortwayneprays.org` (apex; `www` not configured) |
-| App URL env | `NEXT_PUBLIC_APP_URL=https://fortwayneprays.org` in `.env.local` |
+| Canonical domain | `fortwayneprays.org` (apex; `www` not configured) |
+| Alias domain | `prayfw.org` (allowed in `next.config.mjs` for server actions / CSRF; wire in Cloudflare Tunnel when ready) |
+| App URL env | `NEXT_PUBLIC_APP_URL=https://fortwayneprays.org` in `.env.local` (canonical; both hosts serve the same app) |
 | Process | `systemctl --user status/start/restart prayer-pwa` |
 | Unit file | `deploy/prayer-pwa.service` (user unit under `~/.config/systemd/user/`) |
 | After code changes | `cd ~/prayer-pwa && npm run build && systemctl --user restart prayer-pwa` |
@@ -44,19 +45,30 @@ Footer branding: Fort Wayne Prays · fortwayneprays.org · © Blackhawk Ministri
 5. **If not found in Planning Center:** still OTP → enter name → **unlinked** account (`planning_center_sync_status = unlinked`); admin can link later.
 6. If PCO match: after verify + person choice → create/reuse user by PCO person id, pull Family + Friends lists.
 7. Returning users with a verified contact method auto-sign-in after OTP (no name form).
+8. **After any successful sign-in:** if the user has no row in `pledges`, redirect to `/pledge?required=1` (pledge form first). Users who already pledged go to `/auth`. Profile also surfaces the pledge form at the top until one is saved.
 
 ## How to sync a user (admin)
 
 1. Sign in as `role = admin`.
 2. `/admin/planning-center` → credentials.
-3. **Sync user** (email lookup) or **Sync all users** (bulk).
-4. Manual ID override if needed; **Refresh lists** for already-linked people.
+3. **Add user from Planning Center** — search name/email/phone/person ID → **Add to campaign**.
+4. **Record prayer or pledge** for any member (top forms or per-user quick actions). Admin sessions count toward campaign + PCO totals when linked.
+5. **Sync user** (email lookup) or **Sync all users** (bulk) for existing accounts.
+6. Manual ID override if needed; **Refresh lists** for already-linked people.
 
 ## Custom field writeback
 
-1. Prayer sessions enqueue `last_prayed_for` + `prayer_progress` jobs.
-2. Jobs stay pending/skipped until field map has a **PCO field definition ID** and **Enabled**.
-3. **Process pending jobs** on the Planning Center admin page to attempt writes.
+Church Center person tab **263994** (Pray Like Crazy):
+
+| App field key | Label | PCO FieldDefinition ID |
+|---|---|---|
+| `total_minutes_pledged` | Total Minutes Pledged | `1091023` |
+| `total_minutes_prayed` | Total Minutes Prayed | `1091024` |
+
+1. **Pledge save** → write `total_minutes_pledged` to PCO immediately (latest pledge total).
+2. **Prayer session save** → write `total_minutes_prayed` immediately (sum of the member’s sessions).
+3. Admin **Push campaign totals now** / **Process pending jobs** for backfill/retries.
+4. Guests and unlinked accounts are skipped. Only these two field-map rows remain (legacy care fields removed).
 
 ## Notifications admin
 

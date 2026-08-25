@@ -2,13 +2,16 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Suspense } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { AuthSessionRefresh } from "@/app/components/auth-session-refresh";
 import { Roboto, Roboto_Condensed } from "next/font/google";
 import { ChunkLoadRecovery } from "@/app/components/chunk-load-recovery";
-import { HomeIcon, PersonIcon, PromptIcon } from "@/app/components/icons";
+import { ParticipantNavigation } from "@/app/components/participant-navigation";
 import { ScrollToTop } from "@/app/components/scroll-to-top";
+import { SkipToMainContent } from "@/app/components/skip-to-main-content";
 import { SITE_DOMAIN, SITE_NAME, SITE_URL, SiteFooter } from "@/app/components/site-footer";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, hasCapability } from "@/lib/auth";
+import { getPendingBoardReviewCount } from "@/lib/prayer-requests";
 import "./globals.css";
 
 /** Condensed campaign / UI face */
@@ -50,7 +53,16 @@ export const metadata: Metadata = {
   other: {
     "site-domain": SITE_DOMAIN
   },
-  manifest: "/manifest.webmanifest"
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/favicon.ico?v=2" },
+      { url: "/favicon-16x16.png?v=2", sizes: "16x16", type: "image/png" },
+      { url: "/favicon-32x32.png?v=2", sizes: "32x32", type: "image/png" },
+      { url: "/icon.svg?v=2", type: "image/svg+xml" }
+    ],
+    apple: [{ url: "/apple-touch-icon.png?v=2", sizes: "180x180", type: "image/png" }]
+  }
 };
 
 export const viewport = {
@@ -65,10 +77,14 @@ export default async function RootLayout({
   children: ReactNode;
 }>) {
   const user = await getCurrentUser();
+  const staffReviewCount = hasCapability(user?.role, "community-requests:moderate")
+    ? await getPendingBoardReviewCount()
+    : 0;
 
   return (
     <html lang="en" className={`${robotoCondensed.variable} ${robotoReading.variable}`}>
       <body>
+        <SkipToMainContent />
         <ChunkLoadRecovery />
         <AuthSessionRefresh enabled={Boolean(user)} />
         <Suspense fallback={null}>
@@ -76,67 +92,25 @@ export default async function RootLayout({
         </Suspense>
         <div className="plc-chrome sticky top-0 z-50 border-b backdrop-blur">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
-            <Link href="/" className="brand-logo text-2xl font-black uppercase text-paper">
-              Pray <span>Like</span> Crazy
+            <Link href="/" className="flex shrink-0 items-center" aria-label="Pray Like Crazy home">
+              <Image src="/header-logo@web.png" alt="Pray Like Crazy" width={800} height={226} priority className="h-10 w-auto object-contain sm:h-12" />
             </Link>
-            <nav className="hidden items-center gap-6 text-sm font-black uppercase text-muted md:flex">
-              {user ? (
-                <Link href="/prompts" className="nav-link">
-                  Prompts
-                </Link>
-              ) : null}
-              {user ? (
-                <Link href="/requests" className="nav-link">
-                  Requests
-                </Link>
-              ) : null}
-              <Link href="/log" className="pray-nav-btn" aria-label="PRAY">
-                PRAY
-              </Link>
-              <Link
-                href="/auth"
-                className="grid h-10 w-10 place-items-center rounded-full border border-paper/40 text-paper"
-                aria-label="Your profile and dashboard"
-              >
-                <span className="sr-only">Profile</span>
-                <PersonIcon className="h-6 w-6" />
-              </Link>
-            </nav>
+            <ParticipantNavigation
+              isSignedIn={Boolean(user)}
+              role={user?.role}
+              staffReviewCount={staffReviewCount}
+              variant="header"
+            />
           </div>
         </div>
         {children}
         <SiteFooter />
-        <nav className="plc-chrome fixed inset-x-0 bottom-0 z-50 border-t px-2 py-2 text-paper md:hidden">
-          <div
-            className={`mx-auto grid max-w-lg items-center text-center text-xs ${
-              user ? "grid-cols-5" : "grid-cols-3"
-            }`}
-          >
-            <Link href="/" className="bottom-nav-link text-yellow">
-              <HomeIcon className="h-7 w-7" />
-              <span>Home</span>
-            </Link>
-            {user ? (
-              <Link href="/prompts" className="bottom-nav-link">
-                <PromptIcon className="h-7 w-7" />
-                <span>Prompts</span>
-              </Link>
-            ) : null}
-            <Link href="/log" className="pray-nav-btn pray-nav-btn-mobile" aria-label="PRAY">
-              PRAY
-            </Link>
-            {user ? (
-              <Link href="/requests" className="bottom-nav-link">
-                <span className="grid h-7 w-7 place-items-center text-lg font-black leading-none">+</span>
-                <span>Requests</span>
-              </Link>
-            ) : null}
-            <Link href="/auth" className="bottom-nav-link" aria-label="Your profile and dashboard">
-              <PersonIcon className="h-7 w-7" />
-              <span>Me</span>
-            </Link>
-          </div>
-        </nav>
+        <ParticipantNavigation
+          isSignedIn={Boolean(user)}
+          role={user?.role}
+          staffReviewCount={staffReviewCount}
+          variant="mobile"
+        />
       </body>
     </html>
   );

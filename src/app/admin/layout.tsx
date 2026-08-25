@@ -1,14 +1,20 @@
 import type { ReactNode } from "react";
-import { getCurrentUser } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { getCurrentUser, hasCapability } from "@/lib/auth";
 import { AdminNav } from "./admin-nav";
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const user = await getCurrentUser();
-  const isAdmin = user?.role === "admin";
+  if (!user) {
+    redirect("/auth");
+  }
+  if (!hasCapability(user.role, "staff:access")) {
+    redirect("/");
+  }
 
   return (
-    <div>
-      {isAdmin ? <AdminNav /> : null}
+    <div className="admin-area">
+      <AdminNav role={user.role} />
       {children}
     </div>
   );

@@ -118,6 +118,15 @@ export function PlusIcon(props: IconProps) {
   );
 }
 
+export function RequestIcon(props: IconProps) {
+  return (
+    <SvgIcon {...props}>
+      <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4.8 4v-4.1A2.5 2.5 0 0 1 4 13.5v-8Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="2" />
+      <path d="M8 8h8M8 12h5" stroke="currentColor" strokeLinecap="round" strokeWidth="2" />
+    </SvgIcon>
+  );
+}
+
 export function RefreshIcon(props: IconProps) {
   return (
     <SvgIcon {...props}>
@@ -128,6 +137,15 @@ export function RefreshIcon(props: IconProps) {
         strokeWidth="2"
       />
       <path d="M20 4v5h-5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+    </SvgIcon>
+  );
+}
+
+export function DownloadIcon(props: IconProps) {
+  return (
+    <SvgIcon {...props}>
+      <path d="M12 4v10m0 0 4-4m-4 4-4-4" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+      <path d="M5 19h14" stroke="currentColor" strokeLinecap="round" strokeWidth="2" />
     </SvgIcon>
   );
 }

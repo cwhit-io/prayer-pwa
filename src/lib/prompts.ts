@@ -1,5 +1,6 @@
 import { query } from "@/lib/postgres";
 import { getActivePromptTagNames, getTagsForPrayerPrompts, replacePrayerPromptTags } from "@/lib/tags";
+import { repairImportedText, repairImportedTextOrNull, sanitizePromptCopy } from "@/lib/text";
 
 /** @deprecated Prefer getActivePromptTagNames() — kept for static fallbacks. */
 export const promptCategories = [
@@ -58,10 +59,10 @@ function mapPrompt(row: PrayerPromptRow, tags: string[] = []): PrayerPrompt {
     tags.length > 0 ? tags : row.category ? [row.category] : [];
   return {
     id: row.id,
-    title: row.title,
-    scriptureReference: row.scripture_reference,
-    scriptureText: row.scripture_text,
-    body: row.body,
+    title: repairImportedText(row.title),
+    scriptureReference: repairImportedTextOrNull(row.scripture_reference),
+    scriptureText: repairImportedTextOrNull(row.scripture_text),
+    body: repairImportedText(row.body),
     category: resolvedTags[0] ?? row.category ?? "General",
     tags: resolvedTags,
     publishDate: formatDateValue(row.publish_date),
@@ -283,6 +284,7 @@ async function insertCampaignPromptRows(
   for (const row of rows) {
     const tags = row.tags.length > 0 ? row.tags : ["General"];
     const primary = tags[0];
+    const copy = sanitizePromptCopy(row);
 
     const inserted = await query<{ id: string }>(
       `insert into prayer_prompts (
@@ -298,10 +300,10 @@ async function insertCampaignPromptRows(
        values ($1, $2, $3, $4, $5, $6, $7, $8)
        returning id`,
       [
-        row.title,
-        row.scriptureReference,
-        row.scriptureText,
-        row.body,
+        copy.title,
+        copy.scriptureReference,
+        copy.scriptureText,
+        copy.body,
         primary,
         row.publishDate,
         row.isActive,
@@ -361,6 +363,7 @@ export async function createPrayerPrompt(input: {
 }) {
   const tags = input.tags.length > 0 ? input.tags : ["General"];
   const primary = tags[0];
+  const copy = sanitizePromptCopy(input);
 
   const result = await query<{ id: string }>(
     `insert into prayer_prompts (
@@ -376,10 +379,10 @@ export async function createPrayerPrompt(input: {
      values ($1, $2, $3, $4, $5, $6, $7, $8)
      returning id`,
     [
-      input.title,
-      input.scriptureReference,
-      input.scriptureText,
-      input.body,
+      copy.title,
+      copy.scriptureReference,
+      copy.scriptureText,
+      copy.body,
       primary,
       input.publishDate,
       input.isActive,
@@ -403,6 +406,7 @@ export async function updatePrayerPrompt(input: {
 }) {
   const tags = input.tags.length > 0 ? input.tags : ["General"];
   const primary = tags[0];
+  const copy = sanitizePromptCopy(input);
 
   await query(
     `update prayer_prompts
@@ -416,10 +420,10 @@ export async function updatePrayerPrompt(input: {
      where id = $1`,
     [
       input.id,
-      input.title,
-      input.scriptureReference,
-      input.scriptureText,
-      input.body,
+      copy.title,
+      copy.scriptureReference,
+      copy.scriptureText,
+      copy.body,
       primary,
       input.publishDate,
       input.isActive

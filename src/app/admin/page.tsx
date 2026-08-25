@@ -1,13 +1,6 @@
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/auth";
-import { getCampaignProgressSnapshot } from "@/lib/campaign";
-import { getNotificationProviderStatus } from "@/lib/notifications";
-import { listUsersForAdminLinking } from "@/lib/planning-center";
-import {
-  getDelayedBoardRequests,
-  getPendingBoardReviewRequests
-} from "@/lib/prayer-requests";
-import { getPlanningCenterCredentials } from "@/lib/settings";
+import { getCurrentUser, hasCapability } from "@/lib/auth";
+import { getAdminDashboardSnapshot, getCampaignProgressSnapshot } from "@/lib/campaign";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +20,7 @@ export default async function AdminHomePage() {
     );
   }
 
-  if (user.role !== "admin") {
+  if (!hasCapability(user.role, "staff:access")) {
     return (
       <main className="plc-page">
         <section className="plc-panel mx-auto max-w-3xl p-6">
@@ -38,61 +31,99 @@ export default async function AdminHomePage() {
     );
   }
 
-  const [progress, credentials, users, notificationStatus, pendingReview, delayed] =
+  const canViewDetailedProgress = hasCapability(user.role, "member-progress:read");
+  const canModerate = hasCapability(user.role, "community-requests:moderate");
+  const canManageSettings = hasCapability(user.role, "campaign-settings:manage");
+  const canManageNotifications = hasCapability(user.role, "notifications:manage");
+
+  if (!canViewDetailedProgress) {
+    const { stats, minutesProgressPercent } = await getCampaignProgressSnapshot();
+    return (
+      <main className="plc-page">
+        <div className="plc-shell-wide space-y-8">
+          <header className="space-y-3">
+            <p className="plc-eyebrow">Prayer Team tools</p>
+            <h1 className="plc-title">Support the prayer campaign.</h1>
+            <p className="plc-copy max-w-2xl">Manage prayer content or record a participant&apos;s reported pledge and prayer minutes. Detailed participant progress and moderation are restricted to admins.</p>
+          </header>
+          <section className="grid gap-4 sm:grid-cols-2">
+            <article className="plc-panel p-5">
+              <p className="text-sm font-black uppercase text-white/65">Public campaign progress</p>
+              <p className="mt-2 text-3xl font-black text-white">{stats.totalMinutes.toLocaleString()} minutes</p>
+              <p className="mt-1 text-xs uppercase tracking-wide text-yellow">{minutesProgressPercent.toFixed(1)}% of the church goal</p>
+            </article>
+            <Link href="/auth" className="plc-panel block p-5 transition hover:border-yellow">
+              <p className="text-sm font-black uppercase text-white/65">Your progress</p>
+              <p className="mt-2 text-xl font-black uppercase text-white">Open My Profile</p>
+              <p className="plc-copy mt-1">See your own pledge, prayer history, and progress.</p>
+            </Link>
+          </section>
+          <section className="grid gap-4 md:grid-cols-2">
+            <Link href="/admin/content" className="plc-panel block p-6 transition hover:border-yellow"><p className="plc-eyebrow">Prayer content</p><h2 className="mt-2 text-xl font-black uppercase text-white">Manage prompts</h2><p className="plc-copy mt-2">Create, edit, publish, import, and organize prayer prompts.</p></Link>
+            <Link href="/admin/planning-center" className="plc-panel block p-6 transition hover:border-yellow"><p className="plc-eyebrow">Participant updates</p><h2 className="mt-2 text-xl font-black uppercase text-white">Record minutes or pledges</h2><p className="plc-copy mt-2">Search for a participant and record an update without viewing their prayer progress.</p></Link>
+          </section>
+        </div>
+      </main>
+    );
+  }
+
+  const [progress, dashboard] =
     await Promise.all([
       getCampaignProgressSnapshot(),
-      getPlanningCenterCredentials(),
-      listUsersForAdminLinking(20),
-      getNotificationProviderStatus(),
-      getPendingBoardReviewRequests(),
-      getDelayedBoardRequests()
+      getAdminDashboardSnapshot({
+        includePrivateRequests: hasCapability(user.role, "private-requests:read")
+      })
     ]);
 
-  const linkedCount = users.filter((entry) => entry.planningCenterPersonId).length;
   const { stats, settings, calendar, minutesProgressPercent, paceDelta, aheadOfPace } = progress;
-  const attentionCount = pendingReview.length;
+  const attentionCount = dashboard.pendingReviewRequests;
+  const weekDelta = dashboard.minutesThisWeek - dashboard.minutesLastWeek;
+  const goalCoverage = dashboard.totalPeople > 0
+    ? Math.round((dashboard.peopleWithGoals / dashboard.totalPeople) * 100)
+    : 0;
 
   return (
     <main className="plc-page">
       <div className="plc-shell-wide space-y-8">
         <header className="space-y-3">
-          <p className="plc-eyebrow">Admin</p>
-          <h1 className="plc-title">Campaign control room.</h1>
+          <p className="plc-eyebrow">Staff admin</p>
+          <h1 className="plc-title">Prayer campaign dashboard.</h1>
           <p className="plc-copy max-w-2xl">
-            Work is grouped by job: campaign health, prayer content, community board, people (Planning Center), and
-            messages.
+            Start here to see what needs attention, check campaign progress, and choose the area you need to manage.
+            You do not need to understand every tool on this page.
           </p>
         </header>
 
-        <section className="grid gap-4 md:grid-cols-4">
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <article className="plc-panel p-5">
-            <p className="text-sm font-black uppercase text-white/50">Minutes logged</p>
+            <p className="text-sm font-black uppercase text-white/65">Minutes prayed</p>
             <p className="mt-2 text-3xl font-black text-white">{stats.totalMinutes.toLocaleString()}</p>
             <p className="mt-1 text-xs uppercase tracking-wide text-yellow">
-              {minutesProgressPercent.toFixed(1)}% of goal
+              {minutesProgressPercent.toFixed(1)}% of church goal
             </p>
           </article>
           <article className="plc-panel p-5">
-            <p className="text-sm font-black uppercase text-white/50">Participants</p>
-            <p className="mt-2 text-3xl font-black text-white">{stats.activeParticipants.toLocaleString()}</p>
+            <p className="text-sm font-black uppercase text-white/65">People using the campaign</p>
+            <p className="mt-2 text-3xl font-black text-white">{dashboard.totalPeople.toLocaleString()}</p>
+            <p className="mt-1 text-xs text-white/65">{dashboard.activePeopleThisMonth} active in 30 days</p>
           </article>
           <article className="plc-panel p-5">
-            <p className="text-sm font-black uppercase text-white/50">Pace</p>
+            <p className="text-sm font-black uppercase text-white/65">Progress pace</p>
             <p className="mt-2 text-3xl font-black text-yellow">
               {calendar.hasDates
                 ? `${paceDelta >= 0 ? "+" : ""}${paceDelta.toLocaleString()}`
                 : "—"}
             </p>
             <p className="mt-1 text-xs uppercase tracking-wide text-white/40">
-              {calendar.hasDates
-                ? aheadOfPace
-                  ? "Ahead of linear pace"
-                  : "Behind linear pace"
-                : "Set campaign end date"}
+               {calendar.hasDates
+                 ? aheadOfPace
+                   ? "Ahead of the planned pace"
+                   : "Behind the planned pace"
+                 : "Add campaign dates"}
             </p>
           </article>
           <Link
-            href="/admin/moderation"
+             href="/admin/requests"
             className={`block rounded-[0.85rem] border p-5 shadow-[0_20px_60px_rgba(0,0,0,0.3)] transition ${
               attentionCount > 0
                 ? "border-danger/50 bg-gradient-to-br from-danger/25 via-danger/10 to-surface ring-1 ring-danger/40 hover:border-danger hover:from-danger/30"
@@ -105,15 +136,15 @@ export default async function AdminHomePage() {
                   attentionCount > 0 ? "text-danger" : "text-muted"
                 }`}
               >
-                Needs attention
+                Needs your attention
               </p>
               {attentionCount > 0 ? (
                 <span className="rounded-full bg-danger px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-night-deep">
-                  Action
+                   Review now
                 </span>
               ) : (
                 <span className="rounded-full border border-success/40 bg-success/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-success">
-                  Clear
+                   Nothing waiting
                 </span>
               )}
             </div>
@@ -129,35 +160,60 @@ export default async function AdminHomePage() {
                 attentionCount > 0 ? "text-danger/80" : "text-muted"
               }`}
             >
-              Keyword holds · {delayed.length} delayed
+                {attentionCount > 0 ? "Requests waiting for review" : "No requests waiting for review"} · {dashboard.delayedRequests} delayed
             </p>
           </Link>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <Link href="/admin/campaign" className="plc-panel block p-6 transition hover:border-yellow">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-yellow">Campaign</p>
-            <h2 className="mt-2 text-xl font-black uppercase text-white">Dates & goal</h2>
-            <p className="plc-copy mt-2">
-              End date, goal minutes, session soft cap, and pace metrics
-              {settings.endDate ? ` · ends ${settings.endDate}` : " · end date not set"}.
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <article className="plc-panel p-5">
+            <p className="text-sm font-black uppercase text-white/65">Minutes this week</p>
+            <p className="mt-2 text-3xl font-black text-white">{dashboard.minutesThisWeek.toLocaleString()}</p>
+            <p className={`mt-1 text-sm font-black ${weekDelta >= 0 ? "text-success" : "text-danger"}`}>
+              {weekDelta >= 0 ? "+" : ""}{weekDelta.toLocaleString()} vs last week
             </p>
-          </Link>
+          </article>
+          <article className="plc-panel p-5">
+            <p className="text-sm font-black uppercase text-white/65">Prayer sessions this week</p>
+            <p className="mt-2 text-3xl font-black text-white">{dashboard.sessionsThisWeek.toLocaleString()}</p>
+            <p className="mt-1 text-sm text-white/65">{dashboard.averageSessionMinutesThisWeek} minutes average</p>
+          </article>
+          <article className="plc-panel p-5">
+            <p className="text-sm font-black uppercase text-white/65">Campaign pledges</p>
+            <p className="mt-2 text-3xl font-black text-white">{dashboard.peopleWithGoals.toLocaleString()}</p>
+            <p className="mt-1 text-sm text-white/65">{goalCoverage}% of campaign accounts</p>
+          </article>
+          <article className="plc-panel p-5">
+            <p className="text-sm font-black uppercase text-white/65">Open prayer requests</p>
+            <p className="mt-2 text-3xl font-black text-white">{dashboard.openRequests.toLocaleString()}</p>
+            <p className="mt-1 text-sm text-white/65">{dashboard.activePrompts} active prayer prompts</p>
+          </article>
+        </section>
+
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+           {canManageSettings ? <Link href="/admin/campaign" className="plc-panel block p-6 transition hover:border-yellow">
+             <p className="text-xs font-black uppercase tracking-[0.16em] text-yellow">Start here</p>
+              <h2 className="mt-2 text-xl font-black uppercase text-white">Settings</h2>
+             <p className="plc-copy mt-2">
+               Set the campaign dates, church-wide prayer goal, and timer limit.
+               {settings.endDate ? ` The campaign ends ${settings.endDate}.` : " The campaign end date is not set yet."}
+            </p>
+           </Link> : null}
 
           <Link href="/admin/content" className="plc-panel block p-6 transition hover:border-yellow">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-yellow">Content</p>
-            <h2 className="mt-2 text-xl font-black uppercase text-white">Prayer content</h2>
-            <p className="plc-copy mt-2">
-              Campaign prompts (Supplication), ACTS guide, and categories—plus CSV import/export.
+             <p className="text-xs font-black uppercase tracking-[0.16em] text-yellow">What people see</p>
+             <h2 className="mt-2 text-xl font-black uppercase text-white">Prayer content</h2>
+             <p className="plc-copy mt-2">
+               Manage prayer prompts, the ACTS guide, and the topics people use to find prayer content.
             </p>
           </Link>
 
-          <Link href="/admin/community" className="plc-panel block p-6 transition hover:border-yellow">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-yellow">Community</p>
-            <h2 className="mt-2 text-xl font-black uppercase text-white">Board & requests</h2>
-            <p className="plc-copy mt-2">
-              Prayer requests, delayed publish, and board safety
-              {attentionCount > 0 ? (
+            {canModerate ? <Link href="/admin/requests" className="plc-panel block p-6 transition hover:border-yellow">
+             <p className="text-xs font-black uppercase tracking-[0.16em] text-yellow">What people share</p>
+             <h2 className="mt-2 text-xl font-black uppercase text-white">Community requests</h2>
+             <p className="plc-copy mt-2">
+                Review prayer requests, approve or hold posts, and archive old requests
+               {attentionCount > 0 ? (
                 <>
                   {" "}
                   · <span className="font-black text-danger">{attentionCount} need review</span>
@@ -167,29 +223,27 @@ export default async function AdminHomePage() {
               )}
               .
             </p>
-          </Link>
+           </Link> : null}
 
-          <Link
+           {canManageNotifications ? <Link
             href="/admin/planning-center"
             className="plc-panel block p-6 transition hover:border-yellow"
           >
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-yellow">People</p>
-            <h2 className="mt-2 text-xl font-black uppercase text-white">Planning Center</h2>
-            <p className="plc-copy mt-2">
-              API {credentials.configured ? "ready" : "not set"} · {linkedCount} linked users · Family & Friends
-              sync.
+             <p className="text-xs font-black uppercase tracking-[0.16em] text-yellow">People using the campaign</p>
+             <h2 className="mt-2 text-xl font-black uppercase text-white">People & accounts</h2>
+             <p className="plc-copy mt-2">
+               Review people using the campaign, update a person&apos;s minutes or goal, and sync household and friends lists.
             </p>
-          </Link>
+           </Link> : null}
 
           <Link
             href="/admin/notifications"
             className="plc-panel block p-6 transition hover:border-yellow"
           >
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-yellow">Messages</p>
-            <h2 className="mt-2 text-xl font-black uppercase text-white">Notifications</h2>
-            <p className="plc-copy mt-2">
-              Elastic Email {notificationStatus.email.configured ? "ready" : "not set"} · Twilio{" "}
-              {notificationStatus.sms.configured ? "ready" : "not set"} · templates, frequency, send log.
+             <p className="text-xs font-black uppercase tracking-[0.16em] text-yellow">Email & text messages</p>
+             <h2 className="mt-2 text-xl font-black uppercase text-white">Notifications</h2>
+             <p className="plc-copy mt-2">
+               Manage message templates, delivery settings, and the send history.
             </p>
           </Link>
         </section>

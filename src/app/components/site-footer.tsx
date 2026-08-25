@@ -36,6 +36,7 @@ export function SiteFooter() {
               <br />
               {ORG_ADDRESS}
             </p>
+            <p className="text-sm"><Link href="/help" className="font-black text-yellow hover:underline">Help and how it works</Link></p>
           </div>
           <p className="max-w-sm text-xs leading-5 text-muted/80 md:text-right">
             Your Kingdom come in Fort Wayne as it is in heaven. · Pray Like Crazy

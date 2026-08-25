@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FormBanner } from "@/app/components/form-banner";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, hasCapability } from "@/lib/auth";
 import { getManagedNotification } from "@/lib/notification-admin";
 import {
+  getAllowedNotificationFrequencies,
   NOTIFICATION_AUDIENCES,
   NOTIFICATION_FREQUENCIES,
   WEEKDAY_OPTIONS
@@ -47,11 +48,11 @@ export default async function AdminNotificationDetailPage({
     );
   }
 
-  if (user.role !== "admin") {
+  if (!hasCapability(user.role, "notifications:manage")) {
     return (
       <main className="plc-page">
         <section className="plc-panel mx-auto max-w-3xl p-6">
-          <h1 className="text-3xl font-black uppercase text-white">Admin access needed</h1>
+          <h1 className="text-3xl font-black uppercase text-white">Superadmin access needed</h1>
         </section>
       </main>
     );
@@ -67,19 +68,19 @@ export default async function AdminNotificationDetailPage({
       <div className="plc-shell-wide space-y-8">
         <header className="space-y-3">
           <Link href="/admin/notifications" className="text-sm font-black uppercase text-yellow">
-            ← All notifications
+             ← Back to notifications
           </Link>
-          <p className="plc-eyebrow">Admin · Notifications · {notification.key}</p>
+          <p className="plc-eyebrow">Staff admin · Notifications · {notification.key}</p>
           <h1 className="plc-title">{notification.label}</h1>
           <p className="plc-copy max-w-3xl">{notification.description}</p>
           {notification.key === "request_prayed_for" ? (
             <p className="text-sm text-white/55">
-              Members must also opt in on their profile (`/auth`) before emails are sent.
+               Members must also turn on prayer request updates in their profile before emails are sent.
             </p>
           ) : null}
           {notification.key === "new_board_request" ? (
             <p className="text-sm text-white/55">
-              Goes to users with role admin or prayer_team who have a real email address on file.
+               This message goes to staff members with a deliverable email address.
             </p>
           ) : null}
           <FormBanner
@@ -100,10 +101,10 @@ export default async function AdminNotificationDetailPage({
 
         <section className="grid gap-6 lg:grid-cols-2">
           <article className="plc-panel p-6">
-            <h2 className="text-2xl font-black uppercase text-white">Delivery settings</h2>
-            <p className="plc-copy mt-2">
-              Control whether this type runs, which channels it uses, how often, and who it targets.
-              {notification.isSystem ? " System types stay on so login keeps working." : ""}
+             <h2 className="text-2xl font-black uppercase text-white">When and how this message is sent</h2>
+             <p className="plc-copy mt-2">
+               Choose whether this message is active, which channels it uses, how often it sends, and who receives it.
+               {notification.isSystem ? " Sign-in messages stay active so people can log in." : ""}
             </p>
             <form action={saveNotificationSettingsAction} className="mt-5 space-y-4">
               <input type="hidden" name="key" value={notification.key} />
@@ -154,7 +155,9 @@ export default async function AdminNotificationDetailPage({
                   defaultValue={notification.frequency}
                   className="plc-input w-full px-4 py-3"
                 >
-                  {NOTIFICATION_FREQUENCIES.map((option) => (
+                  {NOTIFICATION_FREQUENCIES.filter((option) =>
+                    getAllowedNotificationFrequencies(notification.key).includes(option.value)
+                  ).map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label} — {option.hint}
                     </option>

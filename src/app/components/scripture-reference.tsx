@@ -30,6 +30,7 @@ export function ScriptureReference({
           title="Open this passage in the English Standard Version on YouVersion"
         >
           {reference}
+          <span className="sr-only"> (opens in a new tab)</span>
         </a>
       ) : (
         <p className="text-sm font-black uppercase text-yellow">{reference}</p>

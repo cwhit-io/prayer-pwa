@@ -1,4 +1,5 @@
 import { query } from "@/lib/postgres";
+import { syncCurrentCampaign } from "@/lib/campaign-model";
 
 export async function getSetting(key: string) {
   const result = await query<{ value: string }>(
@@ -131,8 +132,9 @@ function isoDateOrNull(value: string | null | undefined) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
     return null;
   }
-  const parsed = new Date(`${trimmed}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) {
+  const [year, month, day] = trimmed.split("-").map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== trimmed) {
     return null;
   }
   return trimmed;
@@ -205,6 +207,10 @@ export async function saveCampaignSettings(input: {
     setSetting("campaign_show_acts_tags", showActsTags ? "1" : "0")
   ]);
 
+  if (startDate && endDate) {
+    await syncCurrentCampaign({ startDate, endDate, goalMinutes });
+  }
+
   return {
     startDate,
     endDate,
@@ -216,12 +222,7 @@ export async function saveCampaignSettings(input: {
 
 /** Calendar progress helpers for pacing vs the goal. */
 export function getCampaignCalendarMetrics(settings: CampaignSettings, now = new Date()) {
-  const start = settings.startDate
-    ? new Date(`${settings.startDate}T00:00:00`)
-    : null;
-  const end = settings.endDate ? new Date(`${settings.endDate}T23:59:59`) : null;
-
-  if (!start || !end || end.getTime() <= start.getTime()) {
+  if (!settings.startDate || !settings.endDate || settings.endDate < settings.startDate) {
     return {
       hasDates: false as const,
       totalDays: 0,
@@ -232,13 +233,31 @@ export function getCampaignCalendarMetrics(settings: CampaignSettings, now = new
     };
   }
 
-  const totalMs = end.getTime() - start.getTime();
-  const totalDays = Math.max(1, Math.ceil(totalMs / 86_400_000));
-  const elapsedMs = Math.min(totalMs, Math.max(0, now.getTime() - start.getTime()));
-  const elapsedDays = Math.min(totalDays, Math.max(0, Math.floor(elapsedMs / 86_400_000)));
-  const remainingDays = Math.max(0, totalDays - elapsedDays);
-  const calendarProgressPercent = Math.min(100, Math.max(0, (elapsedMs / totalMs) * 100));
-  const expectedMinutesByNow = Math.round((settings.goalMinutes * elapsedMs) / totalMs);
+  const ordinal = (value: string) => {
+    const [year, month, day] = value.split("-").map(Number);
+    return Date.UTC(year, month - 1, day) / 86_400_000;
+  };
+  const localParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Indiana/Indianapolis",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(now);
+  const part = (type: Intl.DateTimeFormatPartTypes) => Number(localParts.find((entry) => entry.type === type)?.value ?? 0);
+  const today = Date.UTC(part("year"), part("month") - 1, part("day")) / 86_400_000;
+  const dayFraction = (part("hour") * 3600 + part("minute") * 60 + part("second")) / 86_400;
+  const start = ordinal(settings.startDate);
+  const end = ordinal(settings.endDate);
+  const totalDays = end - start + 1;
+  const elapsed = Math.min(totalDays, Math.max(0, today - start + dayFraction));
+  const elapsedDays = Math.min(totalDays, Math.max(0, Math.floor(elapsed)));
+  const remainingDays = Math.max(0, Math.ceil(totalDays - elapsed));
+  const calendarProgressPercent = Math.min(100, Math.max(0, (elapsed / totalDays) * 100));
+  const expectedMinutesByNow = Math.round((settings.goalMinutes * elapsed) / totalDays);
 
   return {
     hasDates: true as const,

@@ -16,8 +16,21 @@ create table if not exists app_users (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   email text not null unique,
-  role text not null default 'member',
+  role text not null default 'member' check (role in ('member', 'prayer_team', 'admin', 'superadmin')),
   group_id uuid null,
+  created_at timestamptz not null default now()
+);
+
+alter table app_users add column if not exists first_seen_at timestamptz null;
+alter table app_users add column if not exists last_seen_at timestamptz null;
+
+create table if not exists authorization_audit_log (
+  id uuid primary key default gen_random_uuid(),
+  actor_user_id uuid null references app_users(id) on delete set null,
+  target_user_id uuid null references app_users(id) on delete set null,
+  prayer_request_id uuid null,
+  action text not null,
+  details jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
 
@@ -28,19 +41,80 @@ create table if not exists groups (
   leader_user_id uuid null references app_users(id) on delete set null
 );
 
+create table if not exists campaigns (
+  id uuid primary key default gen_random_uuid(),
+  slug text not null unique,
+  name text not null,
+  time_zone text not null default 'America/Indiana/Indianapolis',
+  prayer_credit_starts_on date not null,
+  starts_on date not null,
+  ends_on date not null,
+  goal_minutes integer not null check (goal_minutes > 0),
+  installment_count integer not null default 52 check (installment_count > 0),
+  is_current boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  check (ends_on >= starts_on),
+  check (prayer_credit_starts_on <= starts_on)
+);
+
+create unique index if not exists idx_campaigns_one_current on campaigns (is_current) where is_current;
+
 create table if not exists pledges (
   id uuid primary key default gen_random_uuid(),
+  campaign_id uuid not null references campaigns(id) on delete restrict,
   user_id uuid not null references app_users(id) on delete cascade,
   minutes_per_week integer not null check (minutes_per_week > 0),
   total_pledged_minutes integer not null,
+  committed_minutes integer not null check (committed_minutes >= 0),
   start_date date not null,
   end_date date null,
   prayer_focus text null,
   is_public boolean not null default true,
+  joined_at timestamptz not null default now(),
+  withdrawn_at timestamptz null,
   created_at timestamptz not null default now()
 );
 
 alter table pledges add column if not exists prayer_focus text null;
+alter table pledges add column if not exists campaign_id uuid null references campaigns(id) on delete restrict;
+alter table pledges add column if not exists committed_minutes integer null;
+alter table pledges add column if not exists joined_at timestamptz null;
+alter table pledges add column if not exists withdrawn_at timestamptz null;
+create unique index if not exists idx_pledges_campaign_user on pledges(campaign_id, user_id);
+create index if not exists idx_pledges_campaign_public on pledges(campaign_id, is_public) where withdrawn_at is null;
+
+create table if not exists pledge_rate_history (
+  id uuid primary key default gen_random_uuid(),
+  pledge_id uuid not null references pledges(id) on delete cascade,
+  effective_installment integer not null check (effective_installment >= 0),
+  minutes_per_week integer not null check (minutes_per_week >= 0 and minutes_per_week <= 10080),
+  created_at timestamptz not null default now(),
+  unique (pledge_id, effective_installment)
+);
+
+create index if not exists idx_pledge_rate_history_lookup on pledge_rate_history(pledge_id, effective_installment desc);
+
+create or replace function validate_pledge_rate_installment()
+returns trigger
+language plpgsql
+as $$
+declare
+  allowed_installments integer;
+begin
+  select c.installment_count into allowed_installments
+  from pledges p join campaigns c on c.id = p.campaign_id
+  where p.id = new.pledge_id;
+  if allowed_installments is null or new.effective_installment > allowed_installments then
+    raise exception 'Pledge rate installment is outside the campaign schedule';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_validate_pledge_rate_installment on pledge_rate_history;
+create trigger trg_validate_pledge_rate_installment before insert or update on pledge_rate_history
+for each row execute function validate_pledge_rate_installment();
 
 create table if not exists prayer_prompts (
   id uuid primary key default gen_random_uuid(),
@@ -60,9 +134,13 @@ alter table prayer_prompts add column if not exists created_at timestamptz not n
 
 create table if not exists prayer_sessions (
   id uuid primary key default gen_random_uuid(),
+  client_session_id uuid null,
+  campaign_id uuid null references campaigns(id) on delete restrict,
+  campaign_attribution text null check (campaign_attribution is null or campaign_attribution in ('pre_campaign_credit', 'in_campaign')),
   -- null user_id = guest/anonymous minutes that count toward campaign totals only
   user_id uuid null references app_users(id) on delete cascade,
   prompt_id uuid null references prayer_prompts(id) on delete set null,
+  focus_label text null,
   minutes integer not null check (minutes > 0),
   started_at timestamptz not null default now(),
   ended_at timestamptz not null default now(),
@@ -70,6 +148,67 @@ create table if not exists prayer_sessions (
   notes text null,
   created_at timestamptz not null default now()
 );
+
+alter table prayer_sessions add column if not exists focus_label text null;
+alter table prayer_sessions add column if not exists client_session_id uuid null;
+alter table prayer_sessions add column if not exists campaign_id uuid null references campaigns(id) on delete restrict;
+alter table prayer_sessions add column if not exists campaign_attribution text null;
+create unique index if not exists idx_prayer_sessions_client_session on prayer_sessions(client_session_id);
+create index if not exists idx_prayer_sessions_campaign_started on prayer_sessions(campaign_id, started_at);
+create index if not exists idx_prayer_sessions_campaign_user_started on prayer_sessions(campaign_id, user_id, started_at);
+
+create or replace function assign_prayer_session_campaign()
+returns trigger
+language plpgsql
+as $$
+declare
+  selected_campaign campaigns%rowtype;
+begin
+  if new.campaign_id is null then
+    select c.* into selected_campaign
+    from campaigns c
+    where new.started_at >= c.prayer_credit_starts_on::timestamp at time zone c.time_zone
+      and new.started_at < (c.ends_on + 1)::timestamp at time zone c.time_zone
+    order by c.is_current desc, c.starts_on desc
+    limit 1;
+    new.campaign_id := selected_campaign.id;
+  else
+    select c.* into selected_campaign from campaigns c where c.id = new.campaign_id;
+  end if;
+  if selected_campaign.id is null then
+    new.campaign_attribution := null;
+  elsif new.started_at < selected_campaign.starts_on::timestamp at time zone selected_campaign.time_zone then
+    new.campaign_attribution := 'pre_campaign_credit';
+  else
+    new.campaign_attribution := 'in_campaign';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_assign_prayer_session_campaign on prayer_sessions;
+create trigger trg_assign_prayer_session_campaign
+before insert or update of started_at, campaign_id on prayer_sessions
+for each row execute function assign_prayer_session_campaign();
+
+create or replace function protect_campaign_accounting()
+returns trigger
+language plpgsql
+as $$
+begin
+  if (new.prayer_credit_starts_on, new.starts_on, new.ends_on, new.time_zone, new.installment_count)
+     is distinct from (old.prayer_credit_starts_on, old.starts_on, old.ends_on, old.time_zone, old.installment_count)
+     and exists (select 1 from prayer_sessions where campaign_id = old.id)
+  then
+    raise exception 'Campaign accounting fields cannot change after prayer has been recorded';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_protect_campaign_accounting on campaigns;
+create trigger trg_protect_campaign_accounting before update on campaigns
+for each row execute function protect_campaign_accounting();
 
 create table if not exists prayer_requests (
   id uuid primary key default gen_random_uuid(),
@@ -83,6 +222,9 @@ create table if not exists prayer_requests (
   created_at timestamptz not null default now(),
   answered_at timestamptz null
 );
+
+alter table prayer_sessions add column if not exists request_id uuid references prayer_requests(id) on delete set null;
+create index if not exists idx_prayer_sessions_request on prayer_sessions(request_id);
 
 create table if not exists testimonies (
   id uuid primary key default gen_random_uuid(),
@@ -234,15 +376,35 @@ create index if not exists idx_group_memberships_user on group_memberships (user
 create index if not exists idx_group_memberships_group on group_memberships (group_id);
 create index if not exists idx_pc_sync_queue_status on planning_center_sync_queue (status, created_at);
 
--- Seed default custom-field definitions (disabled writeback until church configures IDs)
-insert into planning_center_field_map (field_key, label, direction, enabled, notes)
+-- Seed campaign writeback fields only (PCO tab 263994)
+insert into planning_center_field_map (field_key, planning_center_field_id, label, direction, enabled, notes)
 values
-  ('prayer_progress', 'Prayer progress', 'write', false, 'Percent or minutes toward pledge'),
-  ('last_prayed_for', 'Last prayed for', 'write', false, 'Timestamp of last prayer session for this person'),
-  ('follow_up_needed', 'Follow-up needed', 'both', false, 'Boolean care flag for pastoral follow-up'),
-  ('care_visit_scheduled', 'Care visit scheduled', 'both', false, 'Scheduled care visit date/time'),
-  ('pastoral_care_notes', 'Pastoral care notes', 'write', false, 'Leader notes only — enable carefully')
+  (
+    'total_minutes_pledged',
+    '1091023',
+    'Total Minutes Pledged',
+    'write',
+    true,
+    'Current campaign commitment. PCO FieldDefinition 1091023 (Church Center tab 263994).'
+  ),
+  (
+    'total_minutes_prayed',
+    '1091024',
+    'Total Minutes Prayed',
+    'write',
+    true,
+    'Current campaign prayer actual. PCO FieldDefinition 1091024 (Church Center tab 263994).'
+  )
 on conflict (field_key) do nothing;
+
+delete from planning_center_field_map
+where field_key in (
+  'prayer_progress',
+  'last_prayed_for',
+  'follow_up_needed',
+  'care_visit_scheduled',
+  'pastoral_care_notes'
+);
 
 create table if not exists app_settings (
   key text primary key,
@@ -464,5 +626,36 @@ create index if not exists idx_notification_send_log_key
 create table if not exists user_notification_preferences (
   user_id uuid primary key references app_users(id) on delete cascade,
   email_prayer_request_updates boolean not null default false,
+  email_pledge_invitations boolean not null default false,
+  email_progress_updates boolean not null default false,
   updated_at timestamptz not null default now()
 );
+
+alter table user_notification_preferences
+  add column if not exists email_pledge_invitations boolean not null default false;
+alter table user_notification_preferences
+  alter column email_pledge_invitations set default false;
+alter table user_notification_preferences
+  add column if not exists email_progress_updates boolean not null default false;
+
+create table if not exists notification_delivery_queue (
+  id uuid primary key default gen_random_uuid(),
+  notification_key text not null references notification_definitions(key) on delete cascade,
+  user_id uuid not null references app_users(id) on delete cascade,
+  recipient_email text not null,
+  slot_key text not null,
+  template_vars jsonb not null default '{}'::jsonb,
+  status text not null default 'queued' check (status in ('queued', 'processing', 'sent', 'failed', 'cancelled')),
+  attempts integer not null default 0,
+  next_attempt_at timestamptz not null default now(),
+  provider_message_id text null,
+  error_message text null,
+  created_at timestamptz not null default now(),
+  claimed_at timestamptz null,
+  sent_at timestamptz null,
+  unique (notification_key, user_id, slot_key)
+);
+
+create index if not exists idx_notification_delivery_queue_ready
+  on notification_delivery_queue (next_attempt_at, created_at)
+  where status = 'queued';

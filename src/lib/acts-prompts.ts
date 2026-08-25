@@ -1,5 +1,6 @@
 import { query } from "@/lib/postgres";
 import { getTagsForActsPrompts, replaceActsPromptTags } from "@/lib/tags";
+import { repairImportedText, repairImportedTextOrNull, sanitizePromptCopy } from "@/lib/text";
 
 export const actsSteps = [
   { step: "A" as const, name: "Adoration", focus: "Worship God for who He is" },
@@ -34,10 +35,10 @@ function mapPrompt(row: ActsPromptRow, tags: string[] = []): ActsPrompt {
   return {
     id: row.id,
     step: row.step,
-    title: row.title,
-    body: row.body,
-    scriptureReference: row.scripture_reference,
-    scriptureText: row.scripture_text,
+    title: repairImportedText(row.title),
+    body: repairImportedText(row.body),
+    scriptureReference: repairImportedTextOrNull(row.scripture_reference),
+    scriptureText: repairImportedTextOrNull(row.scripture_text),
     isActive: row.is_active,
     tags
   };
@@ -145,16 +146,17 @@ export type ActsImportRow = {
 
 async function insertActsPromptRows(rows: ActsImportRow[]) {
   for (const row of rows) {
+    const copy = sanitizePromptCopy(row);
     const inserted = await query<{ id: string }>(
       `insert into acts_prompts (step, title, body, scripture_reference, scripture_text, is_active)
        values ($1, $2, $3, $4, $5, $6)
        returning id`,
       [
         row.step,
-        row.title,
-        row.body,
-        row.scriptureReference,
-        row.scriptureText,
+        copy.title,
+        copy.body,
+        copy.scriptureReference,
+        copy.scriptureText,
         row.isActive
       ]
     );
@@ -216,16 +218,17 @@ export async function createActsPrompt(input: {
   isActive: boolean;
   tags?: string[];
 }) {
+  const copy = sanitizePromptCopy(input);
   const result = await query<{ id: string }>(
     `insert into acts_prompts (step, title, body, scripture_reference, scripture_text, is_active)
      values ($1, $2, $3, $4, $5, $6)
      returning id`,
     [
       input.step,
-      input.title,
-      input.body,
-      input.scriptureReference,
-      input.scriptureText,
+      copy.title,
+      copy.body,
+      copy.scriptureReference,
+      copy.scriptureText,
       input.isActive
     ]
   );
@@ -244,6 +247,7 @@ export async function updateActsPrompt(input: {
   isActive: boolean;
   tags?: string[];
 }) {
+  const copy = sanitizePromptCopy(input);
   await query(
     `update acts_prompts
      set step = $2,
@@ -256,10 +260,10 @@ export async function updateActsPrompt(input: {
     [
       input.id,
       input.step,
-      input.title,
-      input.body,
-      input.scriptureReference,
-      input.scriptureText,
+      copy.title,
+      copy.body,
+      copy.scriptureReference,
+      copy.scriptureText,
       input.isActive
     ]
   );

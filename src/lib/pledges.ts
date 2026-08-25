@@ -1,77 +1,182 @@
-import { query } from "@/lib/postgres";
-import { getCampaignSettings } from "@/lib/settings";
+import type { PoolClient } from "pg";
+import { getCampaignInstallmentPosition, getCampaignPrayerBreakdown, getCurrentCampaign } from "@/lib/campaign-model";
+import { enqueuePledgeWriteback } from "@/lib/planning-center-writeback";
+import { query, withTransaction } from "@/lib/postgres";
 
-const FALLBACK_CAMPAIGN_WEEKS = 52;
-
-function todayIso(now = new Date()) {
-  return now.toISOString().slice(0, 10);
+async function scheduledMinutes(client: PoolClient, pledgeId: string, installmentLimit: number) {
+  if (installmentLimit <= 0) return 0;
+  const result = await client.query<{ minutes: string }>(
+    `select coalesce(sum(rate.minutes_per_week), 0)::text as minutes
+     from generate_series(0, $2 - 1) as installments(installment)
+     cross join lateral (
+       select history.minutes_per_week
+       from pledge_rate_history history
+       where history.pledge_id = $1
+         and history.effective_installment <= installments.installment
+       order by history.effective_installment desc
+       limit 1
+     ) rate`,
+    [pledgeId, installmentLimit]
+  );
+  return Number(result.rows[0]?.minutes ?? 0);
 }
 
-function formatDate(value: string | Date | null) {
-  if (!value) {
-    return null;
-  }
-  if (value instanceof Date) {
-    return value.toISOString().slice(0, 10);
-  }
-  return String(value).slice(0, 10);
-}
+export async function getLatestPledge(userId: string) {
+  const campaign = await getCurrentCampaign();
+  if (!campaign) return null;
+  const [result, position] = await Promise.all([
+    query<{
+      id: string;
+      minutes_per_week: number;
+      committed_minutes: number;
+      joined_at: string | Date;
+      prayer_focus: string | null;
+      is_public: boolean;
+    }>(
+      `select id, minutes_per_week, committed_minutes, joined_at, prayer_focus, is_public
+       from pledges
+       where campaign_id = $1
+         and user_id = $2
+         and withdrawn_at is null
+       limit 1`,
+      [campaign.id, userId]
+    ),
+    getCampaignInstallmentPosition(campaign)
+  ]);
+  const row = result.rows[0];
+  if (!row) return null;
 
-function weeksBetween(startDate: string, endDate: string | null) {
-  if (!endDate) {
-    return FALLBACK_CAMPAIGN_WEEKS;
-  }
-
-  const start = new Date(`${startDate}T00:00:00`);
-  const end = new Date(`${endDate}T00:00:00`);
-  if (end.getTime() < start.getTime()) {
-    return 1;
-  }
-
-  const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86_400_000));
-  return Math.max(1, Math.ceil(days / 7));
-}
-
-export function calculateTotalPledgedMinutes(input: {
-  minutesPerWeek: number;
-  startDate: string;
-  endDate: string | null;
-}) {
-  return input.minutesPerWeek * weeksBetween(input.startDate, input.endDate);
-}
-
-/**
- * Pledge commitment window for totals:
- * - Before campaign starts → campaign start → campaign end (full campaign)
- * - During campaign → today → campaign end (weeks remaining)
- * - No campaign dates → today + 52-week fallback
- *
- * Mid-campaign rate changes also use this window, so totals track remaining weeks
- * at the new weekly pace (not the original full-season total).
- */
-export async function resolvePledgeWindow(now = new Date()) {
-  const campaign = await getCampaignSettings();
-  const today = todayIso(now);
-
-  // Do not count pre-campaign weeks; do not count weeks already past.
-  let startDate = today;
-  if (campaign.startDate && campaign.startDate > today) {
-    startDate = campaign.startDate;
-  }
-
-  const endDate = campaign.endDate;
-  const weeks = weeksBetween(startDate, endDate);
-  const totalForWeekly = (minutesPerWeek: number) =>
-    calculateTotalPledgedMinutes({ minutesPerWeek, startDate, endDate });
+  const [expectedResult, committedBeforeNextResult, prayer] = await Promise.all([
+    query<{ minutes: string }>(
+      `select coalesce(sum(rate.minutes_per_week), 0)::text as minutes
+       from generate_series(0, $2 - 1) as installments(installment)
+       cross join lateral (
+         select history.minutes_per_week
+         from pledge_rate_history history
+         where history.pledge_id = $1
+           and history.effective_installment <= installments.installment
+         order by history.effective_installment desc
+         limit 1
+       ) rate`,
+      [row.id, position.completedInstallments]
+    ),
+    query<{ minutes: string }>(
+      `select coalesce(sum(rate.minutes_per_week), 0)::text as minutes
+       from generate_series(0, $2 - 1) as installments(installment)
+       cross join lateral (
+         select history.minutes_per_week
+         from pledge_rate_history history
+         where history.pledge_id = $1
+           and history.effective_installment <= installments.installment
+         order by history.effective_installment desc
+         limit 1
+       ) rate`,
+      [row.id, position.nextEffectiveInstallment]
+    ),
+    getCampaignPrayerBreakdown(campaign.id, userId)
+  ]);
 
   return {
-    startDate,
-    endDate,
-    weeks,
-    totalForWeekly,
-    campaignStart: campaign.startDate,
-    campaignEnd: campaign.endDate
+    id: row.id,
+    campaignId: campaign.id,
+    campaignName: campaign.name,
+    campaignStartsOn: campaign.startsOn,
+    campaignEndsOn: campaign.endsOn,
+    campaignInstallments: campaign.installmentCount,
+    completedInstallments: position.completedInstallments,
+    campaignStarted: position.campaignStarted,
+    campaignEnded: position.campaignEnded,
+    nextEffectiveInstallment: position.nextEffectiveInstallment,
+    minutesPerWeek: Number(row.minutes_per_week),
+    committedMinutes: Number(row.committed_minutes),
+    totalPledgedMinutes: Number(row.committed_minutes),
+    expectedMinutes: Number(expectedResult.rows[0]?.minutes ?? 0),
+    committedBeforeNextRate: Number(committedBeforeNextResult.rows[0]?.minutes ?? 0),
+    futureInstallments: Math.max(0, campaign.installmentCount - position.nextEffectiveInstallment),
+    campaignPrayedMinutes: prayer.totalMinutes,
+    preCampaignCreditMinutes: prayer.preCampaignCreditMinutes,
+    joinedAt: row.joined_at instanceof Date ? row.joined_at.toISOString() : String(row.joined_at),
+    prayerFocus: row.prayer_focus,
+    isPublic: row.is_public
   };
+}
+
+export async function userHasPledge(userId: string) {
+  return Boolean(await getLatestPledge(userId));
+}
+
+export async function getPostLoginRedirectPath(userId: string) {
+  void userId;
+  return "/auth";
+}
+
+export async function savePrayerPledge(input: {
+  userId: string;
+  minutesPerWeek: number;
+  prayerFocus?: string | null;
+  isPublic: boolean;
+}) {
+  const saved = await withTransaction(async (client) => {
+    const campaign = await getCurrentCampaign(client);
+    if (!campaign) throw new Error("A current campaign has not been configured.");
+    const position = await getCampaignInstallmentPosition(campaign, new Date(), client);
+    await client.query("select pg_advisory_xact_lock(hashtext($1))", [`${campaign.id}:${input.userId}`]);
+
+    const existing = await client.query<{
+      id: string;
+      prayer_focus: string | null;
+    }>(
+      `select id, prayer_focus
+       from pledges
+       where campaign_id = $1 and user_id = $2
+       for update`,
+      [campaign.id, input.userId]
+    );
+
+    let pledgeId = existing.rows[0]?.id;
+    if (!pledgeId) {
+      const inserted = await client.query<{ id: string }>(
+        `insert into pledges (
+           campaign_id, user_id, minutes_per_week, total_pledged_minutes, committed_minutes,
+           start_date, end_date, prayer_focus, is_public, joined_at
+         ) values ($1, $2, $3, 0, 0, $4, $5, $6, $7, now())
+         returning id`,
+         [campaign.id, input.userId, input.minutesPerWeek, campaign.startsOn, campaign.endsOn, input.prayerFocus ?? null, true]
+      );
+      pledgeId = inserted.rows[0].id;
+    }
+
+    await client.query(
+      `insert into pledge_rate_history (pledge_id, effective_installment, minutes_per_week)
+       values ($1, $2, $3)
+       on conflict (pledge_id, effective_installment) do update
+       set minutes_per_week = excluded.minutes_per_week,
+           created_at = now()`,
+      [pledgeId, position.nextEffectiveInstallment, input.minutesPerWeek]
+    );
+
+    const committedMinutes = await scheduledMinutes(client, pledgeId, campaign.installmentCount);
+    await client.query(
+      `update pledges
+       set minutes_per_week = $2,
+           total_pledged_minutes = $3,
+           committed_minutes = $3,
+           prayer_focus = $4,
+           is_public = $5,
+           withdrawn_at = null
+       where id = $1`,
+      [pledgeId, input.minutesPerWeek, committedMinutes, input.prayerFocus ?? existing.rows[0]?.prayer_focus ?? null, true]
+    );
+
+    return { id: pledgeId, committedMinutes };
+  });
+
+  try {
+    await enqueuePledgeWriteback({ userId: input.userId, totalPledgedMinutes: saved.committedMinutes });
+  } catch {
+    // Never block pledge save on writeback queue failures.
+  }
+  return { id: saved.id };
 }
 
 export async function createPrayerPledge(input: {
@@ -80,134 +185,49 @@ export async function createPrayerPledge(input: {
   prayerFocus: string | null;
   isPublic: boolean;
 }) {
-  const window = await resolvePledgeWindow();
-  const totalPledgedMinutes = window.totalForWeekly(input.minutesPerWeek);
-
-  const result = await query<{ id: string }>(
-    `insert into pledges (
-       user_id,
-       minutes_per_week,
-       total_pledged_minutes,
-       start_date,
-       end_date,
-       prayer_focus,
-       is_public
-     )
-     values ($1, $2, $3, $4, $5, $6, $7)
-     returning id`,
-    [
-      input.userId,
-      input.minutesPerWeek,
-      totalPledgedMinutes,
-      window.startDate,
-      window.endDate,
-      input.prayerFocus,
-      input.isPublic
-    ]
-  );
-
-  return result.rows[0];
+  return savePrayerPledge(input);
 }
 
-export async function getLatestPledge(userId: string) {
-  const result = await query<{
-    id: string;
-    minutes_per_week: number;
-    total_pledged_minutes: number;
-    start_date: string | Date;
-    end_date: string | Date | null;
-    prayer_focus: string | null;
-    is_public: boolean;
-  }>(
-    `select id, minutes_per_week, total_pledged_minutes, start_date, end_date, prayer_focus, is_public
-     from pledges
-     where user_id = $1
-     order by created_at desc
-     limit 1`,
-    [userId]
-  );
-
-  const row = result.rows[0];
-  if (!row) {
-    return null;
-  }
-
-  return {
-    id: row.id,
-    minutesPerWeek: row.minutes_per_week,
-    totalPledgedMinutes: row.total_pledged_minutes,
-    startDate: formatDate(row.start_date) ?? "",
-    endDate: formatDate(row.end_date),
-    prayerFocus: row.prayer_focus,
-    isPublic: row.is_public
-  };
-}
-
-/** Create or update latest pledge using the current campaign window. */
-export async function savePrayerPledge(input: {
-  userId: string;
-  minutesPerWeek: number;
-  prayerFocus?: string | null;
-  isPublic: boolean;
-}) {
-  const window = await resolvePledgeWindow();
-  const totalPledgedMinutes = window.totalForWeekly(input.minutesPerWeek);
-  const latest = await getLatestPledge(input.userId);
-
-  if (latest) {
-    await query(
-      `update pledges
-       set minutes_per_week = $2,
-           total_pledged_minutes = $3,
-           start_date = $4,
-           end_date = $5,
-           prayer_focus = $6,
-           is_public = $7
-       where id = $1`,
-      [
-        latest.id,
-        input.minutesPerWeek,
-        totalPledgedMinutes,
-        window.startDate,
-        window.endDate,
-        input.prayerFocus ?? latest.prayerFocus,
-        input.isPublic
-      ]
+export async function removePrayerPledge(userId: string) {
+  const removed = await withTransaction(async (client) => {
+    const campaign = await getCurrentCampaign(client);
+    if (!campaign) return false;
+    const position = await getCampaignInstallmentPosition(campaign, new Date(), client);
+    await client.query("select pg_advisory_xact_lock(hashtext($1))", [`${campaign.id}:${userId}`]);
+    const existing = await client.query<{ id: string }>(
+      `select id from pledges
+       where campaign_id = $1 and user_id = $2 and withdrawn_at is null
+       for update`,
+      [campaign.id, userId]
     );
-    return { id: latest.id };
-  }
+    const pledgeId = existing.rows[0]?.id;
+    if (!pledgeId) return false;
 
-  return createPrayerPledge({
-    userId: input.userId,
-    minutesPerWeek: input.minutesPerWeek,
-    prayerFocus: input.prayerFocus ?? null,
-    isPublic: input.isPublic
+    await client.query(
+      `insert into pledge_rate_history (pledge_id, effective_installment, minutes_per_week)
+       values ($1, $2, 0)
+       on conflict (pledge_id, effective_installment) do update
+       set minutes_per_week = 0,
+           created_at = now()`,
+      [pledgeId, position.nextEffectiveInstallment]
+    );
+    const committedMinutes = await scheduledMinutes(client, pledgeId, campaign.installmentCount);
+    await client.query(
+      `update pledges
+       set committed_minutes = $2,
+           total_pledged_minutes = $2,
+           withdrawn_at = now()
+       where id = $1`,
+      [pledgeId, committedMinutes]
+    );
+    return true;
   });
-}
 
-/**
- * Recalc all pledge totals from current weekly rates and the live campaign window
- * (remaining weeks if mid-campaign; full campaign if not started yet).
- */
-export async function recalculateAllPledgeTotals() {
-  const window = await resolvePledgeWindow();
-  const result = await query<{ id: string; minutes_per_week: number }>(
-    `select id, minutes_per_week from pledges`
-  );
-
-  let updated = 0;
-  for (const row of result.rows) {
-    const totalPledgedMinutes = window.totalForWeekly(row.minutes_per_week);
-    await query(
-      `update pledges
-       set total_pledged_minutes = $2,
-           start_date = $3,
-           end_date = $4
-       where id = $1`,
-      [row.id, totalPledgedMinutes, window.startDate, window.endDate]
-    );
-    updated += 1;
+  if (removed) {
+    try {
+      await enqueuePledgeWriteback({ userId, totalPledgedMinutes: 0 });
+    } catch {
+      // Never block withdrawal on writeback queue failures.
+    }
   }
-
-  return updated;
 }

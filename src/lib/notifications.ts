@@ -3,7 +3,11 @@
  * Providers can be swapped without touching call sites.
  */
 
-import { sendElasticEmail, type SendEmailInput } from "@/lib/elastic-email";
+import {
+  EmailDeliveryError,
+  sendElasticEmail,
+  type SendEmailInput
+} from "@/lib/elastic-email";
 import {
   getElasticEmailCredentials,
   getTwilioCredentials
@@ -53,10 +57,16 @@ export async function notifyUser(input: {
   subject?: string;
   message: string;
   html?: string;
-  channels?: NotificationChannel[];
+  channels: NotificationChannel[];
 }) {
-  const channels = input.channels ?? ["email", "sms"];
-  const results: Array<{ channel: NotificationChannel; ok: boolean; error?: string }> = [];
+  const channels = input.channels;
+  const results: Array<{
+    channel: NotificationChannel;
+    ok: boolean;
+    error?: string;
+    retryable?: boolean;
+    ambiguous?: boolean;
+  }> = [];
 
   if (channels.includes("email") && input.email) {
     try {
@@ -71,7 +81,9 @@ export async function notifyUser(input: {
       results.push({
         channel: "email",
         ok: false,
-        error: error instanceof Error ? error.message : "Email failed"
+        error: error instanceof Error ? error.message : "Email failed",
+        retryable: error instanceof EmailDeliveryError ? error.retryable : false,
+        ambiguous: error instanceof EmailDeliveryError ? error.ambiguous : true
       });
     }
   }

@@ -342,9 +342,13 @@ export async function markRequestPrayed(input: { requestId: string; userId: stri
        and visibility = 'church_anonymous'
        and status in ('open', 'praying', 'answered')
        and board_moderation = 'published'
-       and (publish_at is null or publish_at <= now())
-     limit 1`,
-    [input.requestId]
+        and (publish_at is null or publish_at <= now())
+        and exists (
+          select 1 from app_users viewer
+          where viewer.id = $2 and viewer.planning_center_person_id is not null
+        )
+      limit 1`,
+    [input.requestId, input.userId]
   );
 
   if (!allowed.rows[0]) {
@@ -389,12 +393,10 @@ export async function markRequestPrayed(input: { requestId: string; userId: stri
 export async function getPrayerTeamRequests() {
   const result = await query<PrayerRequestRow>(
     `${requestSelect}
-     where r.status in ('open', 'praying')
-       and (
-         r.routing_queue = 'prayer_team'
-         or r.visibility in ('prayer_team', 'church_anonymous')
-         or r.target_group_id is null
-       )
+     where r.visibility = 'church_anonymous'
+       and r.status in ('open', 'praying')
+       and r.board_moderation = 'published'
+       and (r.publish_at is null or r.publish_at <= now())
      order by r.created_at desc
      limit 100`
   );
@@ -405,7 +407,10 @@ export async function getPrayerTeamRequests() {
 export async function getRequestsForLeader(userId: string) {
   const result = await query<PrayerRequestRow>(
     `${requestSelect}
-     where r.status in ('open', 'praying')
+     where r.visibility = 'church_anonymous'
+       and r.status in ('open', 'praying')
+       and r.board_moderation = 'published'
+       and (r.publish_at is null or r.publish_at <= now())
        and r.target_group_id in (
          select g.id
          from groups g
@@ -427,7 +432,10 @@ export async function getRequestsForLeader(userId: string) {
 export async function getPastoralQueueRequests() {
   const result = await query<PrayerRequestRow>(
     `${requestSelect}
-     where r.status in ('open', 'praying')
+     where r.visibility = 'church_anonymous'
+       and r.status in ('open', 'praying')
+       and r.board_moderation = 'published'
+       and (r.publish_at is null or r.publish_at <= now())
        and r.routing_queue = 'pastor'
      order by r.created_at desc
      limit 100`
@@ -457,9 +465,10 @@ export async function getFeaturedCommunityPrayer() {
   return result.rows[0] ? mapFeaturedCommunityPrayer(result.rows[0]) : null;
 }
 
-export async function getAdminPrayerRequests() {
+export async function getAdminPrayerRequests(options?: { includePrivate?: boolean }) {
   const result = await query<PrayerRequestRow>(
     `${requestSelect}
+     where ($1::boolean = true or r.visibility = 'church_anonymous')
      order by
        case r.board_moderation
          when 'pending_review' then 0
@@ -472,21 +481,41 @@ export async function getAdminPrayerRequests() {
          else 4
        end,
        r.created_at desc
-     limit 150`
+     limit 150`,
+    [options?.includePrivate === true]
   );
 
   return result.rows.map(mapRequest);
 }
 
+export async function auditPrivateRequestListAccess(actorUserId: string) {
+  await query(
+    `insert into authorization_audit_log (actor_user_id, action, details)
+     values ($1, 'private_request_list_viewed', jsonb_build_object('surface', 'admin_requests'))`,
+    [actorUserId]
+  );
+}
+
 export async function getPendingBoardReviewRequests() {
   const result = await query<PrayerRequestRow>(
     `${requestSelect}
-     where r.board_moderation = 'pending_review'
+     where r.visibility = 'church_anonymous'
+       and r.board_moderation = 'pending_review'
      order by r.created_at asc
      limit 100`
   );
 
   return result.rows.map(mapRequest);
+}
+
+export async function getPendingBoardReviewCount() {
+  const result = await query<{ count: string }>(
+    `select count(*)::text as count
+     from prayer_requests
+      where visibility = 'church_anonymous'
+        and board_moderation = 'pending_review'`
+  );
+  return Number(result.rows[0]?.count ?? 0);
 }
 
 /** Community board posts waiting on the random delay clock. */
@@ -510,14 +539,19 @@ export async function approveBoardRequest(input: {
   notes?: string | null;
 }) {
   const publishAt = input.publishImmediately === false ? null : new Date();
-  await query(
+  const result = await query<{ id: string }>(
     `update prayer_requests
      set board_moderation = 'published',
          publish_at = coalesce($2, now()),
          moderation_notes = coalesce($3, moderation_notes)
-     where id = $1`,
+      where id = $1
+        and visibility = 'church_anonymous'
+      returning id`,
     [input.id, publishAt, input.notes ?? null]
   );
+  if (!result.rows[0]) {
+    throw new Error("Community request not found or access denied.");
+  }
 
   try {
     const { onBoardRequestPublished } = await import("@/lib/notification-events");
@@ -529,14 +563,19 @@ export async function approveBoardRequest(input: {
 
 /** Force a delayed (or held) community post live on the board immediately. */
 export async function publishBoardRequestNow(input: { id: string; notes?: string | null }) {
-  await query(
+  const result = await query<{ id: string }>(
     `update prayer_requests
      set board_moderation = 'published',
          publish_at = now(),
          moderation_notes = coalesce($2, moderation_notes)
-     where id = $1`,
+      where id = $1
+        and visibility = 'church_anonymous'
+      returning id`,
     [input.id, input.notes ?? "Published to community board immediately by admin."]
   );
+  if (!result.rows[0]) {
+    throw new Error("Community request not found or access denied.");
+  }
 
   try {
     const { onBoardRequestPublished } = await import("@/lib/notification-events");
@@ -547,27 +586,48 @@ export async function publishBoardRequestNow(input: { id: string; notes?: string
 }
 
 export async function rejectBoardRequest(input: { id: string; notes?: string | null }) {
-  await query(
+  const result = await query<{ id: string }>(
     `update prayer_requests
      set board_moderation = 'rejected',
          publish_at = null,
          moderation_notes = coalesce($2, moderation_notes)
-     where id = $1`,
+      where id = $1
+        and visibility = 'church_anonymous'
+      returning id`,
     [input.id, input.notes ?? null]
   );
+  if (!result.rows[0]) {
+    throw new Error("Community request not found or access denied.");
+  }
 }
 
 export async function updatePrayerRequestStatus(input: {
   id: string;
   status: string;
+  allowPrivate?: boolean;
 }) {
-  await query(
+  const result = await query<{ id: string }>(
     `update prayer_requests
      set status = $2,
          answered_at = case when $2 = 'answered' then coalesce(answered_at, now()) else answered_at end
-     where id = $1`,
-    [input.id, input.status]
+      where id = $1
+        and ($3::boolean = true or visibility = 'church_anonymous')
+      returning id`,
+    [input.id, input.status, input.allowPrivate === true]
   );
+  if (!result.rows[0]) {
+    throw new Error("Prayer request not found or access denied.");
+  }
+}
+
+export async function deletePrayerRequest(id: string, allowPrivate = false) {
+  const result = await query<{ id: string }>(
+    `delete from prayer_requests where id = $1 and ($2::boolean = true or visibility = 'church_anonymous') returning id`,
+    [id, allowPrivate]
+  );
+  if (!result.rows[0]) {
+    throw new Error("Prayer request not found or access denied.");
+  }
 }
 
 /** Owner: mark a request as answered (stays in history; drops priority on board). */

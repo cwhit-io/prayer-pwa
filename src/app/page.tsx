@@ -1,9 +1,11 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
+import Image from "next/image";
+import { PrayerPulse } from "@/app/components/prayer-pulse";
 import {
   ChartIcon,
   ClockIcon,
-  CrownIcon,
+  DownloadIcon,
   FamilyIcon,
   FlameIcon,
   FriendsIcon,
@@ -22,28 +24,28 @@ const prayerCircles = [
     title: "Seasons, transitions, surrender",
     subtitle: "We don’t pray for the past—we align our hearts with God’s purposes ahead.",
     Icon: PersonIcon,
-    image: "/focus-future.svg"
+    image: "/homepage-prayer-cards/01-future.webp"
   },
   {
     label: "Family",
     title: "Households shaped by prayer",
     subtitle: "Honor parents, cover the people in your home, and pray for church family.",
     Icon: FamilyIcon,
-    image: "/focus-family.svg"
+    image: "/homepage-prayer-cards/02-family.webp"
   },
   {
     label: "Finances",
     title: "Debt, giving, and blessing",
     subtitle: "Ask God to form wise, generous, free hearts with money.",
     Icon: ChartIcon,
-    image: "/focus-finances.svg"
+    image: "/homepage-prayer-cards/03-finances.webp"
   },
   {
     label: "Friends",
     title: "Names carried with love",
-    subtitle: "Pray for community, invitation, and four friends by name this year.",
+    subtitle: "Pray intentionally for four friends to know Jesus and receive salvation.",
     Icon: FriendsIcon,
-    image: "/focus-friends.svg"
+    image: "/homepage-prayer-cards/04-friends.webp"
   }
 ];
 
@@ -58,28 +60,39 @@ export default async function HomePage() {
     getPublicRecentActivity()
   ]);
   const stats = progress.stats;
-  const progressPercent = progress.minutesProgressPercent;
   const goalMinutes = progress.settings.goalMinutes;
 
   return (
     <main className="min-h-screen overflow-hidden bg-night pb-8 text-paper md:pb-0">
-      <section className="hero-grit relative">
-        <div className="hero-skyline" aria-hidden="true" />
-        <div className="mx-auto grid min-h-[650px] max-w-7xl gap-8 px-5 py-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-          <div className="relative z-10 space-y-8">
-            <div>
-              <CrownIcon className="crown-mark" />
-              <h1 className="brush-title max-w-2xl text-[5.6rem] uppercase leading-[0.78] sm:text-[7.4rem] lg:text-[8.5rem]">
-                Pray <span>Like</span> Crazy!
-              </h1>
-            </div>
-            <div className="max-w-xl text-center uppercase sm:text-left">
-              <p className="text-2xl font-black text-paper">1 million minutes of prayer</p>
-              <p className="mt-1 text-2xl font-black text-yellow">
+      <h1 className="sr-only">Pray Like Crazy: one million minutes of prayer for Fort Wayne</h1>
+      <section className="hero-home relative overflow-hidden">
+        <Image
+          src="/hero-pray-like-crazy-web.webp"
+          alt="A person looking over Fort Wayne at sunrise"
+          fill
+          priority
+          sizes="100vw"
+          className="hero-home-image"
+        />
+        <div className="hero-home-overlay" aria-hidden="true" />
+        <div className="relative z-10 mx-auto flex min-h-[680px] max-w-7xl items-center px-5 py-12 lg:py-16">
+          <div className="hero-home-copy space-y-7">
+            <Image
+              src="/header-logo@web.png"
+              alt="Pray Like Crazy"
+              width={800}
+              height={226}
+              priority
+              className="h-auto w-full max-w-[34rem]"
+            />
+            <div className="max-w-xl uppercase">
+              <p className="text-2xl font-black text-paper sm:text-3xl">1 million minutes of prayer</p>
+              <p className="mt-2 text-xl font-black text-yellow sm:text-2xl">
                 Your Kingdom come in Fort Wayne as it is in heaven.
               </p>
-              <p className="mt-5 max-w-lg font-sans text-base normal-case leading-7 text-muted">
-                Let&apos;s raise 1 million minutes of prayer this year—for our Future, Family, Finances, and Friends.
+              <p className="mt-5 max-w-lg font-sans text-base normal-case leading-7 text-paper/75">
+                Fort Wayne Prays is a church-wide prayer campaign. Start praying with a timer or guided prayer. You can
+                pray as a guest, or sign in to save your prayer history, make a campaign pledge, and share prayer requests.
               </p>
             </div>
 
@@ -88,48 +101,64 @@ export default async function HomePage() {
                 href="/log"
                 className="inline-flex items-center gap-3 rounded-lg bg-yellow px-7 py-4 text-sm font-black uppercase text-black shadow-[0_12px_30px_rgba(255,211,0,0.22)] transition hover:-translate-y-0.5"
               >
-                <span className="grid h-8 w-8 place-items-center rounded-full bg-night-deep text-yellow">
+                <span className="grid h-8 w-8 place-items-center rounded-full bg-black text-yellow">
                   <PlayIcon className="h-5 w-5" />
                 </span>
-                PRAY
+                Start praying
               </Link>
               {user ? (
                 <Link
-                  href="/prompts"
+                   href="/prompts"
                   className="inline-flex items-center gap-3 rounded-lg border border-paper/30 bg-surface/80 px-7 py-4 text-sm font-black uppercase text-paper transition hover:-translate-y-0.5 hover:border-yellow"
                 >
                   <PromptIcon className="h-7 w-7 text-yellow" />
-                  Prayer Prompts
+                 Prayer ideas
                 </Link>
               ) : null}
             </div>
           </div>
 
-          <aside className="relative z-10 ml-auto w-full max-w-md">
-            <div className="goal-ring-card text-center">
-              <p className="text-sm font-black uppercase text-yellow">Church Goal</p>
-              <h2 className="mt-2 text-5xl font-black italic leading-none text-paper">
-                {formatCount(goalMinutes)}
-              </h2>
-              <p className="mt-2 text-lg font-black uppercase italic text-paper/90">minutes offered to the King</p>
-              <div className="progress-ring mx-auto mt-6 grid h-56 w-56 place-items-center rounded-full" style={{ "--progress": `${progressPercent}%` } as CSSProperties}>
-                <div className="grid h-40 w-40 place-items-center rounded-full bg-night-deep/90 text-center shadow-[inset_0_0_40px_rgba(242,240,235,0.05)]">
-                  <div>
-                    <span className="skyline-ring-mark mx-auto" aria-hidden="true" />
-                    <div className="mt-2 text-3xl font-black text-paper">{formatCount(stats.totalMinutes)}</div>
-                    <div className="text-xs font-black uppercase text-muted">Fort Wayne prayer</div>
-                  </div>
-                </div>
-              </div>
-              <p className="mt-4 text-2xl font-black text-yellow">{progressPercent.toFixed(0)}% of commitment</p>
-              {progress.calendar.hasDates ? (
-                <p className="mt-2 text-sm text-muted">
-                  {progress.calendar.remainingDays} days left · calendar {progress.calendar.calendarProgressPercent.toFixed(0)}%
-                </p>
-              ) : null}
-            </div>
-          </aside>
         </div>
+      </section>
+
+      <PrayerPulse
+        currentMinutes={stats.totalMinutes}
+        committedMinutes={stats.committedMinutes}
+        goalMinutes={goalMinutes}
+        logPrayerUrl="/log"
+        joinMovementUrl="/pledge"
+      />
+
+      <section className="mx-auto max-w-7xl px-5 pt-10">
+        <article className="field-guide-panel overflow-hidden">
+          <div className="field-guide-content flex flex-col justify-center gap-4 p-6 md:p-10">
+            <p className="text-sm font-black uppercase text-yellow">Featured resource</p>
+            <h2 className="text-2xl font-black uppercase">Prayer Field Guide</h2>
+            <p className="font-sans text-base leading-7 text-paper/75">
+              A practical, downloadable companion for the campaign. Use it to guide your own prayer,
+              lead your family, and keep the heart of Pray Like Crazy close at hand.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <a
+                href="/prayer-field-guide.pdf"
+                download="Prayer Field Guide.pdf"
+                className="inline-flex items-center gap-3 rounded-lg bg-yellow px-7 py-4 text-sm font-black uppercase text-black shadow-[0_12px_30px_rgba(255,211,0,0.22)] transition hover:-translate-y-0.5"
+              >
+                <DownloadIcon className="h-5 w-5" />
+                Download the guide
+              </a>
+              <a
+                href="/prayer-field-guide.pdf"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-3 rounded-lg border border-paper/30 bg-surface/80 px-7 py-4 text-sm font-black uppercase text-paper transition hover:-translate-y-0.5 hover:border-yellow"
+              >
+                <PromptIcon className="h-5 w-5 text-yellow" />
+                Open in browser
+              </a>
+            </div>
+          </div>
+        </article>
       </section>
 
       <section className="mx-auto max-w-7xl px-5">
@@ -137,9 +166,9 @@ export default async function HomePage() {
           <div className="stat-cell">
             <ClockIcon className="stat-icon" />
             <div>
-              <p>Church Minutes</p>
+               <p>Minutes prayed</p>
               <strong>{formatCount(stats.totalMinutes)}</strong>
-              <span>Offered to the King</span>
+               <span>Church-wide total</span>
             </div>
           </div>
           <div className="stat-cell">
@@ -153,17 +182,17 @@ export default async function HomePage() {
           <div className="stat-cell">
             <PersonIcon className="stat-icon" />
             <div>
-              <p>Praying Together</p>
+                <p>Signed-in people praying</p>
               <strong>{formatCount(stats.activeParticipants)}</strong>
-              <span>Participants</span>
+                <span>Guest minutes still count</span>
             </div>
           </div>
           <div className="stat-cell border-r-0">
             <ChartIcon className="stat-icon" />
             <div>
-              <p>Pledged</p>
-              <strong>{formatCount(stats.pledgedMinutes)}</strong>
-              <span>{formatCount(stats.totalPledges)} Commitments</span>
+               <p>Minutes committed</p>
+              <strong>{formatCount(stats.committedMinutes)}</strong>
+               <span>{formatCount(stats.totalPledges)} people have made commitments</span>
             </div>
           </div>
         </div>
@@ -172,8 +201,8 @@ export default async function HomePage() {
       <section className="mx-auto max-w-7xl px-5 py-8">
         <div className="mb-5 flex items-end justify-between gap-4">
           <div>
-            <p className="text-sm font-black uppercase text-yellow">Pray Like Crazy for your…</p>
-            <h2 className="text-2xl font-black uppercase">Four areas of focus</h2>
+             <p className="text-sm font-black uppercase text-yellow">Prayer topics</p>
+             <h2 className="text-2xl font-black uppercase">Four areas of focus</h2>
           </div>
           {user ? (
             <Link href="/prompts" className="hidden text-sm font-black uppercase text-yellow sm:inline-flex">
@@ -183,7 +212,11 @@ export default async function HomePage() {
         </div>
         <div className="grid gap-5 md:grid-cols-4">
           {prayerCircles.map((circle) => (
-            <article key={circle.label} className="focus-card overflow-hidden rounded-lg border border-paper/10 bg-surface">
+            <Link
+              key={circle.label}
+              href={user ? `/prompts?tag=${encodeURIComponent(circle.label)}` : `/auth?next=${encodeURIComponent(`/prompts?tag=${circle.label}`)}`}
+              className="focus-card overflow-hidden rounded-lg border border-paper/10 bg-surface transition hover:border-yellow/50"
+            >
               <div
                 className="focus-art"
                 style={{ "--focus-image": `url(${circle.image})` } as CSSProperties}
@@ -199,7 +232,8 @@ export default async function HomePage() {
                 <p className="mt-2 text-sm font-black uppercase text-yellow">{circle.title}</p>
                 <p className="mt-3 text-sm font-bold uppercase leading-6 text-muted">{circle.subtitle}</p>
               </div>
-            </article>
+              <span className="sr-only">View {circle.label} prayer ideas</span>
+            </Link>
           ))}
         </div>
       </section>
@@ -231,15 +265,22 @@ export default async function HomePage() {
                   <ClockIcon className="h-7 w-7" />
                 </span>
                 <div>
-                  <p className="font-semibold text-paper">The first public activity will appear here.</p>
-                  <p className="text-sm text-muted">PRAY, add prompts, or share a community prayer.</p>
+                   <p className="font-semibold text-paper">No community activity has been shared yet.</p>
+                   <p className="text-sm text-muted">You can start praying or share the first community prayer request.</p>
+                   <div className="mt-3 flex flex-wrap gap-4">
+                     <Link href="/log" className="font-black text-yellow">Start praying</Link>
+                     <Link href={user ? "/requests/mine#submit" : "/auth?next=/requests/mine%23submit"} className="font-black text-yellow">Share a request</Link>
+                   </div>
                 </div>
               </div>
             )}
           </div>
-          <Link href="/auth" className="mt-3 inline-flex text-sm font-black uppercase text-yellow">
-            View your profile
-          </Link>
+           <div className="mt-4 flex flex-wrap gap-4">
+           <Link href="/auth" className="inline-flex text-sm font-black uppercase text-yellow">
+             {user ? "View my profile" : "Sign in to view your profile"}
+           </Link>
+           <Link href="/help" className="inline-flex text-sm font-black uppercase text-yellow">How totals work</Link>
+           </div>
         </article>
       </section>
     </main>

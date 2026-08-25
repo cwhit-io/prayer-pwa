@@ -12,6 +12,18 @@ export type SendEmailInput = {
   replyTo?: string;
 };
 
+export class EmailDeliveryError extends Error {
+  retryable: boolean;
+  ambiguous: boolean;
+
+  constructor(message: string, options: { retryable?: boolean; ambiguous?: boolean } = {}) {
+    super(message);
+    this.name = "EmailDeliveryError";
+    this.retryable = Boolean(options.retryable);
+    this.ambiguous = Boolean(options.ambiguous);
+  }
+}
+
 /** Strip whitespace/newlines that break API keys when pasted. */
 export function normalizeElasticApiKey(value: string) {
   return value.replace(/\s+/g, "").trim();
@@ -52,6 +64,28 @@ function isAccessDenied(status: number, message: string) {
     lower.includes("access denied") ||
     lower.includes("accessdenied")
   );
+}
+
+function isExpiredKey(message: string) {
+  const lower = message.toLowerCase();
+  return lower.includes("apikey expired") || lower.includes("api key expired");
+}
+
+async function fetchElasticEmail(input: string, init: RequestInit) {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await fetch(input, { ...init, signal: AbortSignal.timeout(30_000) });
+    } catch (error) {
+      lastError = error;
+      if (attempt === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      }
+    }
+  }
+  throw lastError instanceof Error
+    ? new Error(`Could not reach Elastic Email: ${lastError.message}`)
+    : new Error("Could not reach Elastic Email.");
 }
 
 function buildBodyParts(input: { htmlBody?: string; textBody?: string }) {
@@ -95,24 +129,32 @@ export async function sendElasticEmail(input: SendEmailInput) {
 
   // Transactional endpoint (not bulk /emails). Official payload shape:
   // Recipients: { To: string[] }, Content: { From, Subject, Body, ... }
-  const response = await fetch(`${ELASTICEMAIL_API}/emails/transactional`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-ElasticEmail-ApiKey": apiKey
-    },
-    body: JSON.stringify({
-      Recipients: {
-        To: recipients
+  let response: Response;
+  try {
+    response = await fetchElasticEmail(`${ELASTICEMAIL_API}/emails/transactional`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-ElasticEmail-ApiKey": apiKey
       },
-      Content: {
-        From: formatFromAddress(fromEmail, fromName),
-        ReplyTo: input.replyTo || fromEmail,
-        Subject: input.subject,
-        Body: buildBodyParts(input)
-      }
-    })
-  });
+      body: JSON.stringify({
+        Recipients: {
+          To: recipients
+        },
+        Content: {
+          From: formatFromAddress(fromEmail, fromName),
+          ReplyTo: input.replyTo || fromEmail,
+          Subject: input.subject,
+          Body: buildBodyParts(input)
+        }
+      })
+    });
+  } catch (error) {
+    throw new EmailDeliveryError(
+      error instanceof Error ? error.message : "Email provider request failed",
+      { ambiguous: true }
+    );
+  }
 
   const text = await response.text().catch(() => "");
   type ElasticSendResponse = {
@@ -130,11 +172,20 @@ export async function sendElasticEmail(input: SendEmailInput) {
 
   if (!response.ok) {
     const raw = payload?.Error || payload?.message || text || `HTTP ${response.status}`;
-    if (isAccessDenied(response.status, raw)) {
-      throw new Error(ELASTIC_ACCESS_DENIED_HELP);
+    if (isExpiredKey(raw)) {
+      throw new EmailDeliveryError(
+        "Elastic Email rejected the stored API key because it is expired. Create a new key with SendHttp permission and save it under Admin > Notifications."
+      );
     }
-    throw new Error(
-      raw.length > 300 ? `Elastic Email request failed (${response.status}): ${raw.slice(0, 300)}` : raw
+    if (isAccessDenied(response.status, raw)) {
+      throw new EmailDeliveryError(ELASTIC_ACCESS_DENIED_HELP);
+    }
+    throw new EmailDeliveryError(
+      raw.length > 300 ? `Elastic Email request failed (${response.status}): ${raw.slice(0, 300)}` : raw,
+      {
+        retryable: response.status === 429,
+        ambiguous: response.status >= 500
+      }
     );
   }
 

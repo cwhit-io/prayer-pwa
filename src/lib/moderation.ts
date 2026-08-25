@@ -356,7 +356,19 @@ export async function previewModeration(input: {
     };
   }
 
-  const openai = await runOpenAIModeration(text);
+  const openai: OpenAIModerationResult = isCommunity
+    ? await runOpenAIModeration(text)
+    : {
+        configured: false,
+        ran: false,
+        error: null,
+        flagged: false,
+        overallAction: "pass",
+        urgent: false,
+        categories: [],
+        matchLabels: [],
+        summary: "Skipped for private request privacy."
+      };
 
   if (openai.overallAction === "block") {
     return {
@@ -436,7 +448,7 @@ export async function previewModeration(input: {
       userMessage: null,
       whatWouldHappen: isCommunity
         ? `Request would be saved and held in the private review queue (not on the community board). Triggered by: ${sources.join(" + ")}.${urgentNote}`
-        : `Request would be saved for private prayer team care, flagged for leadership attention. Triggered by: ${sources.join(" + ")}.${urgentNote}`,
+        : `Request would be saved privately for the requester and authorized superadmins. Triggered by: ${sources.join(" + ")}.${urgentNote}`,
       boardModeration,
       publishAt: null,
       matchedKeywords: matchLabels,
@@ -458,7 +470,7 @@ export async function previewModeration(input: {
     return {
       outcome: "private_ok",
       userMessage: null,
-      whatWouldHappen: "Request would be saved and shared privately with the prayer team. No review hold.",
+      whatWouldHappen: "Request would be saved privately for the requester and authorized superadmins.",
       boardModeration: "published",
       publishAt: null,
       matchedKeywords: [],

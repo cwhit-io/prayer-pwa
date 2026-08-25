@@ -1,4 +1,4 @@
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, hasCapability } from "@/lib/auth";
 import { rowsToCsv } from "@/lib/csv";
 import { listModerationKeywords } from "@/lib/moderation";
 
@@ -6,8 +6,8 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const user = await getCurrentUser();
-  if (!user || user.role !== "admin") {
-    return new Response("Admin access required.", { status: 403 });
+  if (!user || !hasCapability(user.role, "secrets:manage")) {
+    return new Response("Superadmin access required.", { status: 403 });
   }
 
   const keywords = await listModerationKeywords();

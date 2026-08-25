@@ -13,10 +13,10 @@ export type SessionFocus = {
 
 export function prayerCountLabel(count: number) {
   if (count <= 0) {
-    return "Needs prayer";
+    return "No prayers recorded yet";
   }
   if (count === 1) {
-    return "Prayed for 1 time";
+    return "Prayed for once";
   }
   return `Prayed for ${count} times`;
 }

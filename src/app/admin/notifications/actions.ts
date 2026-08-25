@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, hasCapability } from "@/lib/auth";
 import {
   normalizeElasticApiKey,
   sendElasticEmail,
@@ -16,29 +16,33 @@ import {
   updateNotificationSettings,
   updateNotificationTemplate
 } from "@/lib/notification-admin";
-import type { NotificationAudience, NotificationFrequency } from "@/lib/notification-catalog";
+import {
+  getAllowedNotificationFrequencies,
+  type NotificationAudience,
+  type NotificationFrequency
+} from "@/lib/notification-catalog";
 import { setSetting } from "@/lib/settings";
-import { sendTwilioSms, testTwilioConnection } from "@/lib/twilio";
+import { testTwilioConnection } from "@/lib/twilio";
 
 function readText(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" ? value.trim() : "";
 }
 
-async function requireAdmin() {
+async function requireSuperadmin() {
   const user = await getCurrentUser();
   if (!user) {
     redirect("/auth");
   }
-  if (user.role !== "admin") {
-    redirectWithError("/admin", "Admin access is required.");
+  if (!hasCapability(user.role, "notifications:manage")) {
+    redirectWithError("/admin", "Superadmin access is required.");
   }
   return user;
 }
 
 export async function saveElasticEmailCredentialsAction(formData: FormData) {
   try {
-    await requireAdmin();
+    await requireSuperadmin();
 
     const apiKey = normalizeElasticApiKey(readText(formData, "api_key"));
     const fromEmail = readText(formData, "from_email");
@@ -67,7 +71,7 @@ export async function saveElasticEmailCredentialsAction(formData: FormData) {
 
 export async function saveTwilioCredentialsAction(formData: FormData) {
   try {
-    await requireAdmin();
+    await requireSuperadmin();
 
     const accountSid = readText(formData, "account_sid");
     const authToken = readText(formData, "auth_token");
@@ -107,7 +111,7 @@ export async function saveTwilioCredentialsAction(formData: FormData) {
 
 export async function sendTestEmailAction(formData: FormData) {
   try {
-    await requireAdmin();
+    await requireSuperadmin();
     const to = readText(formData, "test_email");
     if (!to) {
       redirectWithError("/admin/notifications", "Test recipient email is required.");
@@ -130,36 +134,12 @@ export async function sendTestEmailAction(formData: FormData) {
   }
 }
 
-export async function sendTestSmsAction(formData: FormData) {
-  try {
-    await requireAdmin();
-    const to = readText(formData, "test_phone");
-    if (!to) {
-      redirectWithError(
-        "/admin/notifications",
-        "Test phone number is required (E.164 format, e.g. +12605551212)."
-      );
-    }
-
-    await sendTwilioSms({
-      to,
-      body: "Pray Like Crazy test SMS — Twilio is connected."
-    });
-
-    revalidatePath("/admin/notifications");
-    redirectWithQuery("/admin/notifications", { sms_test: "1" });
-  } catch (error) {
-    rethrowIfNextNavigation(error);
-    redirectWithError("/admin/notifications", error, "Test SMS failed.");
-  }
-}
-
 export async function saveNotificationSettingsAction(formData: FormData) {
   const key = readText(formData, "key");
   const path = key ? `/admin/notifications/${key}` : "/admin/notifications";
 
   try {
-    await requireAdmin();
+    await requireSuperadmin();
     if (!key) {
       redirectWithError("/admin/notifications", "Notification key is required.");
     }
@@ -170,6 +150,10 @@ export async function saveNotificationSettingsAction(formData: FormData) {
     const hourRaw = readText(formData, "send_hour_local");
     const sendDayOfWeek = dayRaw === "" ? null : Number(dayRaw);
     const sendHourLocal = Number(hourRaw);
+
+    if (!getAllowedNotificationFrequencies(key).includes(frequency)) {
+      redirectWithError(path, "That frequency is not supported for this notification type.");
+    }
 
     await updateNotificationSettings({
       key,
@@ -200,7 +184,7 @@ export async function saveNotificationTemplateAction(formData: FormData) {
   const path = key ? `/admin/notifications/${key}` : "/admin/notifications";
 
   try {
-    await requireAdmin();
+    await requireSuperadmin();
     if (!key) {
       redirectWithError("/admin/notifications", "Notification key is required.");
     }
@@ -246,7 +230,7 @@ export async function resetNotificationTemplateAction(formData: FormData) {
   const path = key ? `/admin/notifications/${key}` : "/admin/notifications";
 
   try {
-    await requireAdmin();
+    await requireSuperadmin();
     if (!key) {
       redirectWithError("/admin/notifications", "Notification key is required.");
     }
@@ -266,7 +250,7 @@ export async function sendManagedTestAction(formData: FormData) {
   const path = key ? `/admin/notifications/${key}` : "/admin/notifications";
 
   try {
-    await requireAdmin();
+    await requireSuperadmin();
     const email = readText(formData, "test_email") || null;
     const phone = readText(formData, "test_phone") || null;
 
@@ -296,7 +280,9 @@ export async function sendManagedTestAction(formData: FormData) {
         category: "Family",
         headline: "Test campaign announcement",
         body: "This is a test body from the admin notifications manager.",
-        open_count: 4
+        open_count: 4,
+        settings_url: `${process.env.NEXT_PUBLIC_APP_URL || "https://fortwayneprays.org"}/auth?next=${encodeURIComponent("/auth#settings")}#settings`,
+        unsubscribe_url: `${process.env.NEXT_PUBLIC_APP_URL || "https://fortwayneprays.org"}/auth?next=${encodeURIComponent("/auth#settings")}#settings`
       }
     });
 
@@ -325,7 +311,7 @@ export async function sendManagedTestAction(formData: FormData) {
 
 export async function quickToggleNotificationAction(formData: FormData) {
   try {
-    await requireAdmin();
+    await requireSuperadmin();
     const key = readText(formData, "key");
     const enable = formData.get("enable") === "1";
     if (!key) {

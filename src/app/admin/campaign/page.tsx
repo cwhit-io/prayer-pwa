@@ -1,14 +1,17 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { FormBanner } from "@/app/components/form-banner";
+import { FormSubmitButton } from "@/app/components/form-submit-button";
 import {
   createApiTokenAction,
   revokeApiTokenAction,
   saveCampaignSettingsAction
 } from "./actions";
 import { listApiTokens } from "@/lib/api-tokens";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, hasCapability } from "@/lib/auth";
 import { getCampaignProgressSnapshot } from "@/lib/campaign";
 import { SITE_URL } from "@/app/components/site-footer";
+import { AdminSettingsIntegrations } from "../settings-integrations";
 
 export const dynamic = "force-dynamic";
 
@@ -68,14 +71,22 @@ export default async function AdminCampaignPage({
     );
   }
 
-  if (user.role !== "admin") {
+  if (!hasCapability(user.role, "campaign-settings:manage")) {
     return (
       <main className="plc-page">
         <section className="plc-panel mx-auto max-w-3xl p-6">
-          <h1 className="text-3xl font-black uppercase text-white">Admin access needed</h1>
+          <h1 className="text-3xl font-black uppercase text-white">Superadmin access needed</h1>
         </section>
       </main>
     );
+  }
+
+  const tokenFlashRaw = (await cookies()).get("api_token_flash")?.value;
+  let tokenFlash: { token: string; name: string } | null = null;
+  try {
+    tokenFlash = tokenFlashRaw ? JSON.parse(tokenFlashRaw) : null;
+  } catch {
+    tokenFlash = null;
   }
 
   const [progress, tokens] = await Promise.all([
@@ -92,11 +103,11 @@ export default async function AdminCampaignPage({
     <main className="plc-page">
       <div className="plc-shell-wide space-y-8">
         <header className="space-y-3">
-          <p className="plc-eyebrow">Admin · Campaign</p>
-          <h1 className="plc-title">Campaign settings &amp; integrations</h1>
+          <p className="plc-eyebrow">Staff admin · Settings</p>
+          <h1 className="plc-title">Manage campaign settings.</h1>
           <p className="plc-copy max-w-3xl">
-            Dates and goal pacing, PRAY display options, and authenticated APIs for external services to push
-            campaign and ACTS prompts.
+            Set campaign behavior and manage the connections that support the prayer experience. Most staff should only
+            use the campaign settings and leave the advanced connections unchanged.
           </p>
           <FormBanner
             error={params?.error}
@@ -112,9 +123,10 @@ export default async function AdminCampaignPage({
 
         <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
           <section className="plc-panel p-6">
-            <h2 className="text-2xl font-black uppercase text-paper">Campaign window</h2>
+            <h2 className="text-2xl font-black uppercase text-paper">Campaign dates and prayer goal</h2>
             <p className="plc-copy mt-2">
-              Set the campaign window so pledge totals and pace metrics use the real timeline.
+              These dates determine the campaign pace calculations. The goal is the total number of prayer minutes the
+              church is working toward.
             </p>
 
             <form action={saveCampaignSettingsAction} className="mt-6 space-y-4">
@@ -137,7 +149,7 @@ export default async function AdminCampaignPage({
                 />
               </label>
               <label className="plc-label block space-y-2">
-                <span>Goal minutes</span>
+                <span>Church-wide goal (minutes)</span>
                 <input
                   required
                   name="goal_minutes"
@@ -148,7 +160,7 @@ export default async function AdminCampaignPage({
                 />
               </label>
               <label className="plc-label block space-y-2">
-                <span>Max session minutes (soft cap)</span>
+                <span>Maximum timer length before a check-in (minutes)</span>
                 <input
                   required
                   name="max_session_minutes"
@@ -159,7 +171,8 @@ export default async function AdminCampaignPage({
                   className="plc-input w-full px-4 py-3"
                 />
                 <span className="text-xs font-normal normal-case tracking-normal text-muted">
-                  Timer auto-pauses at this length; the person can extend or save.
+                  The timer pauses at this length so it does not keep running by accident. The person can continue for
+                  another 30 minutes, save, or finish without saving.
                 </span>
               </label>
 
@@ -172,23 +185,23 @@ export default async function AdminCampaignPage({
                 />
                 <span>
                   <span className="block font-black uppercase text-paper">
-                    Show tags on A–C–T–S steps
+                     Show topics on ACTS steps
                   </span>
                   <span className="mt-1 block text-xs normal-case tracking-normal text-muted">
-                    When enabled, shared tags appear on each step card on the PRAY page (Adoration through
-                    Supplication). Matching still works either way.
+                     When enabled, topics appear on each prayer-guide step. Topic matching works whether or not they are
+                     shown to people.
                   </span>
                 </span>
               </label>
 
-              <button className="plc-button">Save campaign settings</button>
+              <FormSubmitButton pendingLabel="Saving campaign setup…">Save campaign setup</FormSubmitButton>
             </form>
           </section>
 
           <section className="space-y-4">
             <article className="plc-panel p-6">
               <p className="plc-eyebrow">Progress snapshot</p>
-              <h2 className="mt-2 text-2xl font-black uppercase text-white">Minutes vs calendar</h2>
+              <h2 className="mt-2 text-2xl font-black uppercase text-white">Campaign progress</h2>
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
                 <div className="plc-card-muted p-4">
                   <p className="text-xs font-black uppercase text-white/45">Minutes progress</p>
@@ -196,6 +209,11 @@ export default async function AdminCampaignPage({
                   <p className="mt-1 text-sm text-white/55">
                     {formatCount(stats.totalMinutes)} / {formatCount(settings.goalMinutes)}
                   </p>
+                </div>
+                <div className="plc-card-muted p-4">
+                  <p className="text-xs font-black uppercase text-white/45">Minutes committed</p>
+                  <p className="mt-2 text-3xl font-black text-yellow">{formatCount(stats.committedMinutes)}</p>
+                  <p className="mt-1 text-sm text-white/55">{formatCount(stats.totalPledges)} public commitments</p>
                 </div>
                 <div className="plc-card-muted p-4">
                   <p className="text-xs font-black uppercase text-white/45">Calendar progress</p>
@@ -261,6 +279,8 @@ export default async function AdminCampaignPage({
           </section>
         </div>
 
+        <AdminSettingsIntegrations />
+
         {/* API tokens + docs */}
         <section className="grid gap-8 lg:grid-cols-2">
           <article className="plc-panel p-6">
@@ -271,15 +291,15 @@ export default async function AdminCampaignPage({
               the full secret is shown only once when created.
             </p>
 
-            {params?.token_created === "1" && params.token_value ? (
+            {params?.token_created === "1" && tokenFlash?.token ? (
               <div className="mt-4 rounded-xl border border-yellow/40 bg-yellow/10 p-4">
                 <p className="text-sm font-black uppercase text-yellow">Copy this token now</p>
                 <p className="mt-1 text-xs text-muted">
-                  {params.token_name ? `“${params.token_name}” · ` : ""}
+                  {tokenFlash.name ? `“${tokenFlash.name}” · ` : ""}
                   It will not be shown again.
                 </p>
                 <code className="mt-3 block break-all rounded-lg bg-night-deep p-3 font-mono text-sm text-paper">
-                  {params.token_value}
+                  {tokenFlash.token}
                 </code>
               </div>
             ) : null}

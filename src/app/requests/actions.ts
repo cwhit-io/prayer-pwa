@@ -39,13 +39,16 @@ export async function createPrayerRequestAction(formData: FormData) {
     }
 
     if (!allowedVisibilities.includes(visibility as (typeof allowedVisibilities)[number])) {
-      redirectWithError("/requests/mine", "Choose community board or private prayer.");
+      redirectWithError("/requests/mine#submit", "Choose Community board or Private request.");
+    }
+    if (visibility === "church_anonymous" && !user.planningCenterPersonId) {
+      redirectWithError("/requests/mine#submit", "Connect your church profile before sharing with the signed-in community. You can still submit a private request.");
     }
 
     // Tier 1: hard block list — request is not stored.
     await assertRequestNotBlocked({ title, body });
 
-    // Tiers 2–3: OpenAI scores + leadership list (may hard-block or hold for review).
+    // Private request text never leaves the application for external moderation.
     const decision = await decideBoardModeration({ visibility, title, body });
 
     await createPrayerRequest({
@@ -90,7 +93,7 @@ export async function markMyRequestAnsweredAction(formData: FormData) {
     revalidatePath("/requests/mine");
     revalidatePath("/log");
     revalidatePath("/admin/requests");
-    redirectWithQuery("/requests/mine", { updated: "answered" });
+    redirectWithQuery("/requests/mine#requests", { updated: "answered" });
   } catch (error) {
     rethrowIfNextNavigation(error);
     redirectWithError("/requests/mine", error, "Could not mark this request as answered.");
@@ -115,7 +118,7 @@ export async function unpublishMyRequestAction(formData: FormData) {
     revalidatePath("/log");
     revalidatePath("/admin/requests");
     revalidatePath("/admin/moderation");
-    redirectWithQuery("/requests/mine", {
+    redirectWithQuery("/requests/mine#requests", {
       updated: result.action === "archived" ? "closed" : "unpublished"
     });
   } catch (error) {

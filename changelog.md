@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- 2026-08-24: Repaired diamond (�) apostrophes/quotes in campaign and ACTS prompts — Windows-1252 CSV import now decodes correctly, copy is sanitized on save/display, and existing rows were migrated.
+- 2026-08-24: Replaced the Safari-fragile `<details>` “Me” control in the bottom nav with a button menu so the bar no longer jumps or shows a disclosure marker.
+- 2026-07-29: Allowed `prayfw.org` (and `www` / `PrayFW.org`) as public origins in `next.config.mjs` for server actions / CSRF behind Cloudflare Tunnel; docs note it as an alias of fortwayneprays.org.
+- 2026-07-16: Admin People tools — search/add user from Planning Center, record a prayer session or set a pledge for any member (writes campaign totals to PCO when linked).
+- 2026-07-16: Removed legacy PCO field-map rows (care visit, follow-up, last prayed, pastoral notes, prayer progress); only Total Minutes Pledged/Prayed remain, and they write to PCO immediately on every pledge and prayer log.
+- 2026-07-16: Planning Center writeback for Church Center tab 263994 — Total Minutes Pledged (1091023) and Total Minutes Prayed (1091024); enqueued on pledge/session save with upsert field_data + admin “Push campaign totals now”.
+- 2026-07-16: After sign-in, members with no recorded pledge are sent to `/pledge` first; profile also shows the pledge form above other dashboard content until one is saved.
 - 2026-07-18: Incorporated the Fort Wayne skyline SVG into the homepage hero and church goal progress ring.
 - 2026-07-18: Added black/yellow image panels for the homepage Future, Family, Finances, and Friends focus cards.
 - 2026-07-18: Added rolling auth expiration that refreshes valid signed-in sessions for another 30 days from recent app use.

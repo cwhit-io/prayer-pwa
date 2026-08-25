@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
-import { cellAt, cellAtAny, csvHeaderMap, headerHasAny, parseCsv } from "@/lib/csv";
+import { getCurrentUser, hasCapability } from "@/lib/auth";
+import { cellAt, cellAtAny, csvHeaderMap, headerHasAny, parseCsv, readCsvFile } from "@/lib/csv";
 import { redirectWithError, redirectWithQuery, rethrowIfNextNavigation } from "@/lib/form-action";
 import {
   appendPrayerPromptsFromRows,
@@ -37,15 +37,15 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
-async function requireAdmin() {
+async function requirePrayerContentManager() {
   const user = await getCurrentUser();
 
   if (!user) {
     redirect("/auth");
   }
 
-  if (user.role !== "admin") {
-    redirectWithError("/admin", "Admin access is required.");
+  if (!hasCapability(user.role, "prayer-content:manage")) {
+    redirectWithError("/admin", "Prayer content access is required.");
   }
 
   return user;
@@ -83,7 +83,7 @@ async function parsePromptFields(formData: FormData) {
 
 export async function createPromptAction(formData: FormData) {
   try {
-    const user = await requireAdmin();
+    const user = await requirePrayerContentManager();
     const fields = await parsePromptFields(formData);
 
     await createPrayerPrompt({
@@ -104,7 +104,7 @@ export async function createPromptAction(formData: FormData) {
 
 export async function updatePromptAction(formData: FormData) {
   try {
-    await requireAdmin();
+    await requirePrayerContentManager();
     const id = readText(formData, "id");
 
     if (!id) {
@@ -127,7 +127,7 @@ export async function updatePromptAction(formData: FormData) {
 
 export async function setPromptStatusAction(formData: FormData) {
   try {
-    await requireAdmin();
+    await requirePrayerContentManager();
     const id = readText(formData, "id");
     const isActive = readText(formData, "is_active") === "true";
 
@@ -149,7 +149,7 @@ export async function setPromptStatusAction(formData: FormData) {
 /** Upload CSV and replace or append campaign prompts (multi-tag aware). */
 export async function importCampaignPromptsCsvAction(formData: FormData) {
   try {
-    const user = await requireAdmin();
+    const user = await requirePrayerContentManager();
     const modeRaw = readText(formData, "import_mode").toLowerCase();
     const mode = modeRaw === "append" ? "append" : "replace";
 
@@ -163,7 +163,7 @@ export async function importCampaignPromptsCsvAction(formData: FormData) {
       redirectWithError("/admin/prompts", "CSV is too large (max 2MB).");
     }
 
-    const text = await file.text();
+    const text = await readCsvFile(file);
     const table = parseCsv(text);
     if (table.length < 2) {
       redirectWithError(

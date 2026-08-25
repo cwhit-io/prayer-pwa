@@ -123,7 +123,7 @@ export async function onBoardRequestPublished(input: { requestId: string }) {
       return;
     }
 
-    const staffEmails = await listStaffNotifyEmails(["admin", "prayer_team"]);
+    const staffEmails = await listStaffNotifyEmails(["admin", "prayer_team", "superadmin"]);
     if (staffEmails.length === 0) {
       return;
     }

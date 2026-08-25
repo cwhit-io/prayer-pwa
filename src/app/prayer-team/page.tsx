@@ -1,6 +1,13 @@
 import { redirect } from "next/navigation";
+import { getCurrentUser, hasCapability } from "@/lib/auth";
 
-/** Prayer-team queue UI is paused; admins moderate via /admin/requests. */
-export default function PrayerTeamPage() {
-  redirect("/admin/requests");
+export default async function PrayerTeamPage() {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/auth");
+  }
+  if (!hasCapability(user.role, "staff:access")) {
+    redirect("/");
+  }
+  redirect("/admin");
 }

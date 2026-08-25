@@ -1,6 +1,6 @@
 import { ScriptureReference } from "@/app/components/scripture-reference";
 import { PrayButton } from "@/app/components/pray-button";
-import { prayerCountLabel, type SessionFocus } from "@/lib/pray-links";
+import type { SessionFocus } from "@/lib/pray-links";
 
 export type PromptCardView = {
   id: string;
@@ -48,13 +48,6 @@ export function PromptList({
                 </p>
                 <h2 className="mt-2 text-2xl font-black uppercase text-white">{prompt.title}</h2>
               </div>
-              <span
-                className={`plc-status ${
-                  prompt.prayerCount === 0 ? "border-yellow/60 text-yellow" : ""
-                }`}
-              >
-                {prayerCountLabel(prompt.prayerCount)}
-              </span>
             </div>
             {prompt.scriptureReference ? (
               <ScriptureReference
@@ -66,7 +59,7 @@ export function PromptList({
             ) : null}
             <p className="plc-reading mt-3">{prompt.body}</p>
             <div className="mt-5">
-              <PrayButton focus={focus} signedIn={signedIn} prayerCount={prompt.prayerCount} />
+              <PrayButton focus={focus} signedIn={signedIn} showPrayerCount={false} />
             </div>
           </article>
         );

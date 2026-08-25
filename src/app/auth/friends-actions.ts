@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { redirectWithError, redirectWithQuery, rethrowIfNextNavigation } from "@/lib/form-action";
+import { actionErrorMessage, redirectWithQuery, rethrowIfNextNavigation } from "@/lib/form-action";
 import { savePrayerFriendSlots } from "@/lib/prayer-friends";
 
 function readText(formData: FormData, key: string) {
@@ -22,9 +22,12 @@ export async function savePrayerFriendsAction(formData: FormData) {
     await savePrayerFriendSlots(user.id, names);
 
     revalidatePath("/auth");
-    redirectWithQuery("/auth", { friends_saved: "1" });
+    redirectWithQuery("/auth#people", { friends_saved: "1", section: "people" });
   } catch (error) {
     rethrowIfNextNavigation(error);
-    redirectWithError("/auth", error, "Could not save friends list.");
+    redirectWithQuery("/auth#people", {
+      error: actionErrorMessage(error, "Could not save friends list."),
+      section: "people"
+    });
   }
 }

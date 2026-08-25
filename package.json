@@ -7,6 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "db:migrate": "node scripts/migrate.mjs",
+    "test": "node --test --experimental-strip-types tests/*.test.mjs",
     "lint": "eslint .",
     "ux:audit": "node scripts/ux-agent.mjs",
     "ux:browser": "node scripts/ux-browser-agent.mjs",

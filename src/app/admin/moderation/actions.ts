@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, hasCapability } from "@/lib/auth";
 import { redirectWithError, redirectWithQuery, rethrowIfNextNavigation } from "@/lib/form-action";
 import {
   parseModerationKeywordList,
@@ -22,6 +22,7 @@ import {
 } from "@/lib/openai-moderation";
 import { approveBoardRequest, rejectBoardRequest } from "@/lib/prayer-requests";
 import { setSetting } from "@/lib/settings";
+import { query } from "@/lib/postgres";
 
 export type TestModerationState = {
   preview: ModerationPreview | null;
@@ -34,8 +35,8 @@ export async function testModerationAction(
   formData: FormData
 ): Promise<TestModerationState> {
   const user = await getCurrentUser();
-  if (!user || user.role !== "admin") {
-    return { preview: null, error: "Admin access is required." };
+  if (!user || !hasCapability(user.role, "secrets:manage")) {
+    return { preview: null, error: "Superadmin access is required." };
   }
 
   const title = typeof formData.get("title") === "string" ? String(formData.get("title")).trim() : "";
@@ -69,13 +70,24 @@ function readText(formData: FormData, key: string) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-async function requireAdmin() {
+async function requireCommunityModerator() {
   const user = await getCurrentUser();
   if (!user) {
     redirect("/auth");
   }
-  if (user.role !== "admin") {
+  if (!hasCapability(user.role, "community-requests:moderate")) {
     redirectWithError("/admin", "Admin access is required.");
+  }
+  return user;
+}
+
+async function requireSuperadmin() {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/auth");
+  }
+  if (!hasCapability(user.role, "secrets:manage")) {
+    redirectWithError("/admin", "Superadmin access is required.");
   }
   return user;
 }
@@ -89,10 +101,10 @@ function revalidate() {
 
 export async function approveBoardRequestAction(formData: FormData) {
   try {
-    await requireAdmin();
+    const actor = await requireCommunityModerator();
     const id = readText(formData, "id");
     if (!id) {
-      redirectWithError("/admin/moderation", "Request id is required.");
+      redirectWithError("/admin/requests", "Request id is required.");
     }
 
     await approveBoardRequest({
@@ -100,38 +112,46 @@ export async function approveBoardRequestAction(formData: FormData) {
       publishImmediately: true,
       notes: "Approved for community board by admin."
     });
+    await query(
+      `insert into authorization_audit_log (actor_user_id, prayer_request_id, action) values ($1, $2, 'community_request_approved')`,
+      [actor.id, id]
+    );
     revalidate();
-    redirectWithQuery("/admin/moderation", { approved: "1" });
+    redirectWithQuery("/admin/requests", { approved: "1" });
   } catch (error) {
     rethrowIfNextNavigation(error);
-    redirectWithError("/admin/moderation", error, "Could not approve request.");
+    redirectWithError("/admin/requests", error, "Could not approve request.");
   }
 }
 
 export async function rejectBoardRequestAction(formData: FormData) {
   try {
-    await requireAdmin();
+    const actor = await requireCommunityModerator();
     const id = readText(formData, "id");
     if (!id) {
-      redirectWithError("/admin/moderation", "Request id is required.");
+      redirectWithError("/admin/requests", "Request id is required.");
     }
 
     await rejectBoardRequest({
       id,
       notes: "Kept private / not posted to community board by admin."
     });
+    await query(
+      `insert into authorization_audit_log (actor_user_id, prayer_request_id, action) values ($1, $2, 'community_request_rejected')`,
+      [actor.id, id]
+    );
     revalidate();
-    redirectWithQuery("/admin/moderation", { rejected: "1" });
+    redirectWithQuery("/admin/requests", { rejected: "1" });
   } catch (error) {
     rethrowIfNextNavigation(error);
-    redirectWithError("/admin/moderation", error, "Could not reject request.");
+    redirectWithError("/admin/requests", error, "Could not reject request.");
   }
 }
 
 /** Save the church leadership supplemental list. */
 export async function saveKeywordListAction(formData: FormData) {
   try {
-    await requireAdmin();
+    await requireSuperadmin();
     const raw = typeof formData.get("keywords") === "string" ? String(formData.get("keywords")) : "";
     const keywords = parseModerationKeywordList(raw);
     const result = await replaceModerationKeywordsFromList(keywords);
@@ -149,7 +169,7 @@ export async function saveKeywordListAction(formData: FormData) {
 /** Save the hard-block list (profanity / spam). */
 export async function saveBlocklistAction(formData: FormData) {
   try {
-    await requireAdmin();
+    await requireSuperadmin();
     const raw =
       typeof formData.get("blocklist") === "string" ? String(formData.get("blocklist")) : "";
     const terms = parseModerationKeywordList(raw);
@@ -168,7 +188,7 @@ export async function saveBlocklistAction(formData: FormData) {
 /** Save OpenAI API key used for Moderation API score routing. */
 export async function saveOpenAIKeyAction(formData: FormData) {
   try {
-    await requireAdmin();
+    await requireSuperadmin();
     const apiKey = readText(formData, "openai_api_key");
     const clear = formData.get("clear_openai_key") === "on" || formData.get("clear_openai_key") === "true";
 
@@ -194,7 +214,7 @@ export async function saveOpenAIKeyAction(formData: FormData) {
 /** Save OpenAI score thresholds used for block / review routing. */
 export async function saveOpenAIThresholdsAction(formData: FormData) {
   try {
-    await requireAdmin();
+    await requireSuperadmin();
 
     if (formData.get("reset_defaults") === "1") {
       await saveOpenAIModerationThresholds(DEFAULT_OPENAI_THRESHOLDS);

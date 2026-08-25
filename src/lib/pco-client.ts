@@ -51,6 +51,7 @@ function authHeader(appId: string, secret: string) {
 async function pcoFetch(path: string, credentials: { appId: string; secret: string }) {
   const url = path.startsWith("http") ? path : `https://api.planningcenteronline.com${path}`;
   const response = await fetch(url, {
+    signal: AbortSignal.timeout(15_000),
     headers: {
       Authorization: authHeader(credentials.appId, credentials.secret),
       Accept: "application/json"

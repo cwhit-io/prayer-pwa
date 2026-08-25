@@ -27,10 +27,10 @@ function statusLabel(status: string) {
     return "Being prayed for";
   }
   if (status === "answered") {
-    return "Answered";
+    return "Prayer update: answered";
   }
   if (status === "open") {
-    return "Open";
+    return "Prayer still requested";
   }
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
@@ -59,7 +59,7 @@ export function BoardList({ items, signedIn }: { items: BoardItemView[]; signedI
               <div>
                 <p className="text-sm font-black uppercase text-yellow">{item.category}</p>
                 <h2 className="mt-1 text-2xl font-black text-white">{item.title}</h2>
-                <p className="mt-1 text-sm text-white/50">
+                <p className="mt-1 text-sm text-white/65">
                   {item.authorLabel} · {formatDate(item.createdAt)}
                 </p>
               </div>
