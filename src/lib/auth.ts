@@ -78,6 +78,19 @@ export async function signOutCurrentUser() {
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
   if (token) {
+    const session = await query<{ user_id: string; is_demo: boolean }>(
+      `select s.user_id, coalesce(u.is_demo, false) as is_demo
+       from auth_sessions s
+       join app_users u on u.id = s.user_id
+       where s.token = $1
+       limit 1`,
+      [token]
+    );
+    const row = session.rows[0];
+    if (row?.is_demo) {
+      await query(`delete from prayer_friend_slots where user_id = $1`, [row.user_id]);
+      await query(`delete from prayer_sessions where user_id = $1`, [row.user_id]);
+    }
     await query("delete from auth_sessions where token = $1", [token]);
   }
 

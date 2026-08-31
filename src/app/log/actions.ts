@@ -11,6 +11,7 @@ import { markRequestPrayed } from "@/lib/prayer-requests";
 import { getWeightedSupplication, type SupplicationItem } from "@/lib/supplication";
 import { buildYouVersionEsvUrl } from "@/lib/youversion";
 import { query } from "@/lib/postgres";
+import { readDate, readPrayerDate, resolveSessionTimes } from "@/lib/prayer-session-times";
 
 const MAX_SESSION_MINUTES = 24 * 60;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -18,15 +19,6 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3
 function readText(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" ? value.trim() : "";
-}
-
-function readDate(value: string, fallback: Date) {
-  const date = value ? new Date(value) : fallback;
-  return Number.isNaN(date.getTime()) ? fallback : date;
-}
-
-function readPrayerDate(value: string, fallback: Date) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? readDate(`${value}T12:00:00Z`, fallback) : readDate(value, fallback);
 }
 
 export type RefreshableStepPrompt = {
@@ -235,6 +227,12 @@ async function savePrayerSession(formData: FormData) {
         throw new Error("That prayer request is not available on the community board.");
       }
     }
+    ({ startedAt, endedAt } = resolveSessionTimes({
+      startedAt,
+      endedAt,
+      minutes: roundedMinutes,
+      now
+    }));
     if (startedAt.getTime() > endedAt.getTime()) {
       throw new Error("Prayer session start time must be before its end time.");
     }
@@ -269,6 +267,7 @@ async function savePrayerSession(formData: FormData) {
     revalidatePath("/");
     revalidatePath("/auth");
     revalidatePath("/log");
+    revalidatePath("/add-time");
 
     return { signedIn: Boolean(user), minutes: roundedMinutes };
 }

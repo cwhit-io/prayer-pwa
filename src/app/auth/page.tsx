@@ -1,10 +1,13 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import {
   choosePlanningCenterPersonAction,
   createUnlinkedAccountAction,
   requestLoginCodeAction,
+  signOutAction,
   verifyLoginCodeAction
 } from "@/app/auth/actions";
+import { AuthChallengeRestore, ClearStoredLoginChallenge, StartOverLink } from "@/app/auth/login-challenge-state";
 import { FormBanner } from "@/app/components/form-banner";
 import { FormSubmitButton } from "@/app/components/form-submit-button";
 import { getCurrentUser } from "@/lib/auth";
@@ -45,42 +48,6 @@ function isSyntheticEmail(email: string) {
   return email.endsWith("@planningcenter.local") || email.endsWith("@unlinked.local");
 }
 
-type RecentPrayerSession = {
-  id: string;
-  minutes: number;
-  startedAt: string;
-  notes: string | null;
-  promptTitle: string | null;
-  promptCategory: string | null;
-  requestTitle: string | null;
-  focusLabel: string | null;
-};
-
-function PrayerSessionCard({ session }: { session: RecentPrayerSession }) {
-  const focus = session.focusLabel || session.requestTitle || session.promptTitle;
-  return (
-    <article className="plc-card-muted px-4 py-4 text-white/75">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <span>{new Date(session.startedAt).toLocaleDateString()}</span>
-          {focus ? (
-            <p className="mt-1 text-sm font-black text-white">
-              {focus}
-              {!session.focusLabel && !session.requestTitle && session.promptCategory ? (
-                <span className="font-normal text-white/70"> · {session.promptCategory}</span>
-              ) : null}
-            </p>
-          ) : (
-            <p className="mt-1 text-sm text-white/70">Free prayer</p>
-          )}
-        </div>
-        <span className="shrink-0 font-black text-yellow">{formatCount(session.minutes)} min</span>
-      </div>
-      {session.notes ? <p className="mt-2 text-sm text-white/60">{session.notes}</p> : null}
-    </article>
-  );
-}
-
 export default async function ProfileDashboardPage({
   searchParams
 }: {
@@ -110,10 +77,22 @@ export default async function ProfileDashboardPage({
   const verifiedChallenge = !user && challengeId && params?.verified
     ? await getVerifiedLoginChallenge(challengeId)
     : null;
+  const challengeExpired = Boolean(challengeId) && !user && !pendingChallenge && !verifiedChallenge;
+  const signInError = params?.error
+    || (challengeExpired
+      ? "That sign-in expired or was already used. Request a new code."
+      : null);
 
   if (!user) {
     return (
       <main className="plc-page">
+        {challengeExpired ? (
+          <ClearStoredLoginChallenge />
+        ) : (
+          <Suspense fallback={null}>
+            <AuthChallengeRestore />
+          </Suspense>
+        )}
         <div className="plc-shell grid min-h-[72vh] place-items-center">
           <section className="plc-panel w-full max-w-2xl p-8">
             <p className="plc-eyebrow">Your prayer profile</p>
@@ -131,7 +110,7 @@ export default async function ProfileDashboardPage({
             </p>
 
             <div className="mt-4">
-              <FormBanner error={params?.error} />
+              <FormBanner error={signInError} />
             </div>
 
             {!pendingChallenge && !verifiedChallenge ? (
@@ -179,9 +158,9 @@ export default async function ProfileDashboardPage({
                   </label>
                   <div className="flex flex-wrap gap-3">
                     <FormSubmitButton pendingLabel="Signing you in…">Sign me in</FormSubmitButton>
-                    <Link href={authHref(next)} className="plc-button-secondary">
+                    <StartOverLink href={authHref(next)} className="plc-button-secondary">
                       Use a different email or mobile
-                    </Link>
+                    </StartOverLink>
                   </div>
                 </form>
                 <form action={requestLoginCodeAction} className="mt-3">
@@ -225,9 +204,9 @@ export default async function ProfileDashboardPage({
                 </div>
                 <div className="flex flex-wrap gap-3">
                   <FormSubmitButton pendingLabel="Connecting your profile…">Continue with this profile</FormSubmitButton>
-                  <Link href={authHref(next)} className="plc-button-secondary">
+                  <StartOverLink href={authHref(next)} className="plc-button-secondary">
                     Use a different email or phone
-                  </Link>
+                  </StartOverLink>
                 </div>
               </form>
             ) : null}
@@ -258,9 +237,9 @@ export default async function ProfileDashboardPage({
                 </label>
                 <div className="flex flex-wrap gap-3">
                   <FormSubmitButton pendingLabel="Creating your profile…">Create account &amp; continue</FormSubmitButton>
-                  <Link href={authHref(next)} className="plc-button-secondary">
+                  <StartOverLink href={authHref(next)} className="plc-button-secondary">
                     Start over
-                  </Link>
+                  </StartOverLink>
                 </div>
               </form>
             ) : null}
@@ -473,7 +452,6 @@ export default async function ProfileDashboardPage({
                         />
                       </div>
                     ) : null}
-                    <p className="mt-3 text-xs leading-5 text-white/55">All campaign pledges are included in the church-wide committed total.</p>
                   </>
                 ) : (
                   <p className="mt-4 max-w-2xl text-sm leading-6 text-white/70">
@@ -485,14 +463,6 @@ export default async function ProfileDashboardPage({
               <p className="text-white/70">Campaign progress is unavailable until campaign dates are configured.</p>
             )}
           </article>
-
-          <article className="plc-panel flex flex-wrap items-center justify-between gap-3 p-5">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.12em] text-white/55">Lifetime prayer</p>
-              <p className="mt-1 text-3xl font-black text-white">{formatCount(snapshot.totalMinutes)} saved minutes</p>
-            </div>
-            <p className="max-w-sm text-sm leading-6 text-white/60">All prayer saved to your profile, including prayer outside this campaign.</p>
-          </article>
         </section>
 
         {!campaign?.campaignEnded ? (
@@ -503,48 +473,12 @@ export default async function ProfileDashboardPage({
           />
         ) : null}
 
-        <div className="flex flex-wrap justify-center gap-3">
-          <Link href="/log" className="plc-button">Pray now</Link>
-          <Link href="/add-time" className="plc-button-secondary">Add completed time</Link>
-        </div>
-
         <section id="people" className="scroll-mt-24 space-y-4">
           <FormBanner
             error={params?.section === "people" ? params.error : null}
             success={params?.friends_saved === "1" ? "Four Friends list saved." : null}
           />
           <FourFriendsList initialSlots={fourFriends} />
-        </section>
-
-        <section id="activity" className="plc-panel scroll-mt-24 p-5 sm:p-6">
-          <p className="plc-eyebrow">Your activity</p>
-          <h2 className="mt-2 text-2xl font-black uppercase text-white">Recent prayer</h2>
-          <div className="mt-5 space-y-3">
-            {snapshot.recentSessions.length > 0 ? (
-              <>
-                {snapshot.recentSessions.slice(0, 3).map((session) => (
-                  <PrayerSessionCard key={session.id} session={session} />
-                ))}
-                {snapshot.recentSessions.length > 3 ? (
-                  <details className="group">
-                    <summary className="min-h-11 cursor-pointer list-none py-3 font-black uppercase text-yellow">
-                      <span className="group-open:hidden">Show {snapshot.recentSessions.length - 3} more</span>
-                      <span className="hidden group-open:inline">Show less</span>
-                    </summary>
-                    <div className="space-y-3 pt-2">
-                      {snapshot.recentSessions.slice(3).map((session) => (
-                        <PrayerSessionCard key={session.id} session={session} />
-                      ))}
-                    </div>
-                  </details>
-                ) : null}
-              </>
-            ) : (
-              <div className="plc-card-muted px-4 py-4 text-white/70">
-                No saved prayer sessions yet. <Link href="/log" className="font-black text-yellow">Start praying</Link>
-              </div>
-            )}
-          </div>
         </section>
 
         <section id="settings" className="scroll-mt-24 space-y-4">
@@ -575,6 +509,12 @@ export default async function ProfileDashboardPage({
             </p>
           ) : null}
         </section>
+
+        <form action={signOutAction} className="flex justify-center">
+          <button type="submit" className="plc-button-secondary min-h-11">
+            Sign out
+          </button>
+        </form>
       </div>
     </main>
   );

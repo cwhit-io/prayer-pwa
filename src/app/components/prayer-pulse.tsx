@@ -39,17 +39,19 @@ export function PrayerPulse({
   joinMovementUrl,
   displayMode = false
 }: PrayerPulseProps) {
-  const progress = getPrayerPulseProgress(currentMinutes, goalMinutes);
-  const pledgeProgress = getPrayerPulseProgress(committedMinutes, goalMinutes);
+  const prayed = getPrayerPulseProgress(currentMinutes, goalMinutes);
+  const committed = getPrayerPulseProgress(committedMinutes, goalMinutes);
+  const primary = committed;
   const [animatedProgress, setAnimatedProgress] = useState(0);
   const [animatedPledgeProgress, setAnimatedPledgeProgress] = useState(0);
   const [animatedMinutes, setAnimatedMinutes] = useState(0);
   const sectionRef = useRef<HTMLElement>(null);
   const hasAnimated = useRef(false);
   const filterId = useId().replace(/:/g, "");
-  const activePoint = getArcPoint(animatedProgress);
+  const crownProgress = displayMode ? animatedPledgeProgress : animatedProgress;
+  const activePoint = getArcPoint(crownProgress);
   const arcPath = `M ${ARC_CENTER_X - ARC_RADIUS} ${ARC_CENTER_Y} A ${ARC_RADIUS} ${ARC_RADIUS} 0 0 1 ${ARC_CENTER_X + ARC_RADIUS} ${ARC_CENTER_Y}`;
-  const visibleMilestones = milestones.filter((milestone) => milestone <= progress.goalMinutes);
+  const visibleMilestones = milestones.filter((milestone) => milestone <= primary.goalMinutes);
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -60,9 +62,9 @@ export function PrayerPulse({
     }
 
     const showFinalState = () => {
-      setAnimatedProgress(progress.progress);
-      setAnimatedPledgeProgress(pledgeProgress.progress);
-      setAnimatedMinutes(progress.currentMinutes);
+      setAnimatedProgress(prayed.progress);
+      setAnimatedPledgeProgress(committed.progress);
+      setAnimatedMinutes(primary.currentMinutes);
       hasAnimated.current = true;
     };
 
@@ -80,13 +82,13 @@ export function PrayerPulse({
         hasAnimated.current = true;
         observer.disconnect();
         const startedAt = performance.now();
-        const duration = 1_600;
+        const duration = displayMode ? 5_200 : 1_600;
         const animate = (now: number) => {
           const elapsed = Math.min(1, (now - startedAt) / duration);
           const eased = 1 - Math.pow(1 - elapsed, 3);
-          setAnimatedProgress(progress.progress * eased);
-          setAnimatedPledgeProgress(pledgeProgress.progress * eased);
-          setAnimatedMinutes(Math.round(progress.currentMinutes * eased));
+          setAnimatedProgress(prayed.progress * eased);
+          setAnimatedPledgeProgress(committed.progress * eased);
+          setAnimatedMinutes(Math.round(primary.currentMinutes * eased));
 
           if (elapsed < 1) {
             animationFrame = requestAnimationFrame(animate);
@@ -105,7 +107,7 @@ export function PrayerPulse({
       observer.disconnect();
       cancelAnimationFrame(animationFrame);
     };
-  }, [pledgeProgress.progress, progress.currentMinutes, progress.progress]);
+  }, [committed.progress, displayMode, prayed.progress, primary.currentMinutes]);
 
   return (
     <section
@@ -114,20 +116,26 @@ export function PrayerPulse({
       aria-labelledby="prayer-pulse-title"
     >
       <p className="sr-only" role="status">
-        {progress.accessibleSummary} {formatPrayerMinutes(pledgeProgress.currentMinutes)} minutes have been committed.
+        {displayMode
+          ? `${committed.formattedCurrentMinutes} of ${committed.formattedGoalMinutes} minutes committed, ${committed.formattedPercentage} percent.`
+          : `${committed.formattedCurrentMinutes} minutes committed. ${prayed.formattedCurrentMinutes} minutes prayed, ${committed.formattedPercentage} percent of ${committed.formattedGoalMinutes}.`}
       </p>
       <div className="prayer-pulse-shell">
-        <h2 id="prayer-pulse-title" className="prayer-pulse-headline">
+        <h2 id="prayer-pulse-title" className={displayMode ? "sr-only" : "prayer-pulse-headline"}>
           <span>One church. One year.</span> <strong>{formatPrayerMinutes(goalMinutes)} minutes.</strong>
         </h2>
 
         <div
           className="prayer-pulse-gauge"
           role="progressbar"
-          aria-label={progress.accessibleSummary}
+          aria-label={
+            displayMode
+              ? `${committed.formattedCurrentMinutes} of ${committed.formattedGoalMinutes} minutes committed`
+              : prayed.accessibleSummary
+          }
           aria-valuemin={0}
-          aria-valuemax={progress.goalMinutes}
-          aria-valuenow={Math.min(progress.currentMinutes, progress.goalMinutes)}
+          aria-valuemax={primary.goalMinutes}
+          aria-valuenow={Math.min(primary.currentMinutes, primary.goalMinutes)}
         >
           <svg className="prayer-pulse-svg" viewBox="0 0 1000 500" aria-hidden="true">
             <defs>
@@ -143,31 +151,33 @@ export function PrayerPulse({
             </g>
 
             <path className="prayer-pulse-track" d={arcPath} pathLength="100" />
-            <path
-              className="prayer-pulse-pledged"
-              d={arcPath}
-              pathLength="100"
-              style={{ strokeDashoffset: 100 - animatedPledgeProgress * 100 }}
-            />
+            {displayMode ? null : (
+              <path
+                className="prayer-pulse-pledged"
+                d={arcPath}
+                pathLength="100"
+                style={{ strokeDashoffset: 100 - animatedPledgeProgress * 100 }}
+              />
+            )}
             <path
               className="prayer-pulse-active"
               d={arcPath}
               pathLength="100"
-              style={{ strokeDashoffset: 100 - animatedProgress * 100 }}
+              style={{ strokeDashoffset: 100 - (displayMode ? animatedPledgeProgress : animatedProgress) * 100 }}
             />
             <path
               className="prayer-pulse-brush"
               d={arcPath}
               pathLength="100"
               filter={`url(#${filterId})`}
-              style={{ strokeDashoffset: 100 - animatedProgress * 100 }}
+              style={{ strokeDashoffset: 100 - (displayMode ? animatedPledgeProgress : animatedProgress) * 100 }}
             />
 
             {visibleMilestones.map((milestone, index) => {
-              const milestoneProgress = Math.min(1, milestone / progress.goalMinutes);
-              const inner = getArcPoint(milestoneProgress, ARC_RADIUS - 38);
-              const outer = getArcPoint(milestoneProgress, ARC_RADIUS + 18);
-              const label = getArcPoint(milestoneProgress, ARC_RADIUS + 58);
+              const milestoneProgress = Math.min(1, milestone / primary.goalMinutes);
+              const inner = getArcPoint(milestoneProgress, ARC_RADIUS - 48);
+              const outer = getArcPoint(milestoneProgress, ARC_RADIUS + 8);
+              const label = getArcPoint(milestoneProgress, ARC_RADIUS - 82);
 
               return (
                 <g
@@ -195,15 +205,17 @@ export function PrayerPulse({
             <strong className="prayer-pulse-total" aria-hidden="true">
               {formatPrayerMinutes(animatedMinutes)}
             </strong>
-            <span className="prayer-pulse-label">Minutes prayed</span>
+            <span className="prayer-pulse-label">Minutes committed</span>
             <span className="prayer-pulse-rule" aria-hidden="true" />
             <span className="prayer-pulse-progress-label">
-              <strong>{progress.formattedPercentage}%</strong> of {progress.formattedGoalMinutes}
+              <strong>{primary.formattedPercentage}%</strong> of {primary.formattedGoalMinutes}
             </span>
-            <span className="prayer-pulse-pledge-label">
-              <span aria-hidden="true" />
-              {formatPrayerMinutes(pledgeProgress.currentMinutes)} minutes committed
-            </span>
+            {displayMode ? null : (
+              <span className="prayer-pulse-pledge-label">
+                <span aria-hidden="true" />
+                {formatPrayerMinutes(prayed.currentMinutes)} minutes prayed
+              </span>
+            )}
             <p>Every prayer matters. Together, we’re seeking God.</p>
           </div>
         </div>

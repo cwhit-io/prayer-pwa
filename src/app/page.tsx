@@ -14,7 +14,7 @@ import {
   PromptIcon
 } from "@/app/components/icons";
 import { getCurrentUser } from "@/lib/auth";
-import { getCampaignProgressSnapshot, getPublicRecentActivity } from "@/lib/campaign";
+import { getCampaignProgressSnapshot, getPublicRecentActivity, type PublicActivityItem } from "@/lib/campaign";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +53,71 @@ function formatCount(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
 }
 
+const ACTIVITY_TZ = "America/Indiana/Indianapolis";
+
+function formatActivityWhen(iso: string, now = new Date()) {
+  const then = new Date(iso);
+  const diffMs = now.getTime() - then.getTime();
+  const minutes = Math.max(0, Math.floor(diffMs / 60_000));
+  let relative = "Just now";
+  if (minutes >= 1 && minutes < 60) {
+    relative = `${minutes} min ago`;
+  } else if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) {
+      relative = hours === 1 ? "1 hour ago" : `${hours} hours ago`;
+    } else {
+      const days = Math.floor(hours / 24);
+      relative = days === 1 ? "Yesterday" : days < 7 ? `${days} days ago` : then.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        timeZone: ACTIVITY_TZ
+      });
+    }
+  }
+
+  const exact = then.toLocaleString("en-US", {
+    timeZone: ACTIVITY_TZ,
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  });
+
+  return { relative, exact };
+}
+
+const HAPPENING_NOW_MS = 75 * 60 * 1000;
+
+function isSameFortWayneDay(iso: string, now: Date) {
+  const options: Intl.DateTimeFormatOptions = { timeZone: ACTIVITY_TZ, year: "numeric", month: "2-digit", day: "2-digit" };
+  return new Date(iso).toLocaleDateString("en-US", options) === now.toLocaleDateString("en-US", options);
+}
+
+function ActivityFeedItem({ item }: { item: PublicActivityItem }) {
+  const ActivityIcon = item.kind === "session" ? ClockIcon : item.kind === "request" ? FriendsIcon : PromptIcon;
+  const when = formatActivityWhen(item.occurredAt);
+
+  return (
+    <Link href={item.href} className="grid grid-cols-[3rem_1fr_auto] items-center gap-4 py-3.5 transition hover:bg-paper/[0.03]">
+      <span className="activity-stream-node grid h-12 w-12 place-items-center rounded-full border-2 border-yellow text-yellow">
+        <ActivityIcon className="h-7 w-7" />
+      </span>
+      <div>
+        <p className="font-semibold text-paper">{item.title}</p>
+        {item.detail ? <p className="text-sm text-muted">{item.detail}</p> : null}
+      </div>
+      <time
+        dateTime={item.occurredAt}
+        title={when.exact}
+        className="shrink-0 text-right text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-yellow/55"
+      >
+        {when.relative}
+      </time>
+    </Link>
+  );
+}
+
 export default async function HomePage() {
   const [user, progress, activity] = await Promise.all([
     getCurrentUser(),
@@ -61,6 +126,12 @@ export default async function HomePage() {
   ]);
   const stats = progress.stats;
   const goalMinutes = progress.settings.goalMinutes;
+  const now = new Date();
+  const happeningNow = activity.filter((item) => now.getTime() - new Date(item.occurredAt).getTime() <= HAPPENING_NOW_MS);
+  const earlier = activity.filter((item) => now.getTime() - new Date(item.occurredAt).getTime() > HAPPENING_NOW_MS);
+  const earlierLabel = earlier.length > 0 && earlier.every((item) => isSameFortWayneDay(item.occurredAt, now))
+    ? "Earlier today"
+    : "Earlier";
 
   return (
     <main className="min-h-screen overflow-hidden bg-night pb-8 text-paper md:pb-0">
@@ -241,25 +312,36 @@ export default async function HomePage() {
       <section className="mx-auto max-w-7xl px-5 pb-10">
         <article className="dark-panel p-6">
           <h2 className="text-2xl font-black uppercase">Recent Activity</h2>
-          <div className="mt-5 divide-y divide-paper/10">
-            {activity.length > 0 ? activity.map((item) => {
-              const ActivityIcon = item.kind === "session" ? ClockIcon : item.kind === "request" ? FriendsIcon : PromptIcon;
-
-              return (
-                <Link key={item.id} href={item.href} className="grid grid-cols-[3rem_1fr_auto] items-center gap-4 py-4 transition hover:bg-paper/[0.03]">
-                  <span className="grid h-12 w-12 place-items-center rounded-full border-2 border-yellow text-yellow">
-                    <ActivityIcon className="h-7 w-7" />
-                  </span>
+          <p className="mt-2 max-w-2xl text-sm text-muted">Anonymous snapshots from the church, so you can see prayer happening in real time.</p>
+          <div className="mt-5">
+            {activity.length > 0 ? (
+              <div className="space-y-5">
+                {happeningNow.length > 0 ? (
                   <div>
-                    <p className="font-semibold text-paper">{item.title}</p>
-                    {item.detail ? <p className="text-sm text-muted">{item.detail}</p> : null}
+                    <p className="text-[0.7rem] font-black uppercase tracking-[0.22em] text-yellow/85">Happening now</p>
+                    <div className="activity-stream mt-1">
+                      {happeningNow.map((item) => (
+                        <ActivityFeedItem key={item.id} item={item} />
+                      ))}
+                    </div>
                   </div>
-                  {item.metric ? (
-                    <span className="text-sm font-black uppercase text-yellow">{item.metric}</span>
-                  ) : null}
-                </Link>
-              );
-            }) : (
+                ) : null}
+                {earlier.length > 0 ? (
+                  <details className="group" open={happeningNow.length === 0}>
+                    <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 py-1 text-[0.7rem] font-black uppercase tracking-[0.22em] text-white/45">
+                      <span>{earlierLabel}</span>
+                      <span className="font-black text-yellow/70 group-open:hidden">Show</span>
+                      <span className="hidden font-black text-yellow/70 group-open:inline">Hide</span>
+                    </summary>
+                    <div className="activity-stream">
+                      {earlier.map((item) => (
+                        <ActivityFeedItem key={item.id} item={item} />
+                      ))}
+                    </div>
+                  </details>
+                ) : null}
+              </div>
+            ) : (
               <div className="grid grid-cols-[3rem_1fr] items-center gap-4 py-4">
                 <span className="grid h-12 w-12 place-items-center rounded-full border-2 border-yellow text-yellow">
                   <ClockIcon className="h-7 w-7" />

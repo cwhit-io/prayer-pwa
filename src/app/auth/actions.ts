@@ -9,6 +9,7 @@ import {
   completeUnlinkedLogin,
   startPlanningCenterLogin,
   tryAutoCompleteUnlinkedLogin,
+  tryCompleteSingleCandidateLogin,
   verifyPlanningCenterLoginCode
 } from "@/lib/planning-center-login";
 import { authHref, getSafeAuthNextPath } from "@/app/auth/next-path";
@@ -75,6 +76,12 @@ export async function verifyLoginCodeAction(formData: FormData) {
     if (autoUser) {
       await createSessionForUser(autoUser.id);
       await redirectAfterSignIn(autoUser.id, next);
+    }
+
+    const singleUser = await tryCompleteSingleCandidateLogin(challengeId);
+    if (singleUser) {
+      await createSessionForUser(singleUser.id);
+      await redirectAfterSignIn(singleUser.id, next);
     }
 
     redirectWithQuery("/auth", { challenge: challengeId, verified: "1", next });

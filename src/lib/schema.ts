@@ -12,6 +12,7 @@ create table if not exists app_users (
 
 alter table app_users add column if not exists first_seen_at timestamptz null;
 alter table app_users add column if not exists last_seen_at timestamptz null;
+alter table app_users add column if not exists is_demo boolean not null default false;
 
 create table if not exists groups (
   id uuid primary key default gen_random_uuid(),

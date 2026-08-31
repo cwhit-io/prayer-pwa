@@ -1,21 +1,28 @@
+import { sessionActivityTitle } from "@/lib/activity-copy";
 import { query } from "@/lib/postgres";
 import { getCurrentCampaign } from "@/lib/campaign-model";
+
+export type PrayerSessionEntry = {
+  id: string;
+  minutes: number;
+  startedAt: string;
+  notes: string | null;
+  promptTitle: string | null;
+  promptCategory: string | null;
+  requestTitle: string | null;
+  focusLabel: string | null;
+};
 
 export type DashboardSnapshot = {
   totalMinutes: number;
   thisWeekMinutes: number;
   currentWeekday: number;
   weekDays: Array<{ dayIndex: number; minutes: number }>;
-  recentSessions: Array<{
-    id: string;
-    minutes: number;
-    startedAt: string;
-    notes: string | null;
-    promptTitle: string | null;
-    promptCategory: string | null;
-    requestTitle: string | null;
-    focusLabel: string | null;
-  }>;
+};
+
+export type HeaderWeeklyPace = {
+  thisWeekMinutes: number;
+  goalMinutes: number | null;
 };
 
 export type PublicCampaignStats = {
@@ -112,10 +119,10 @@ export async function getPublicRecentActivity() {
        select
          id::text,
          'session'::text as kind,
-         'Minutes offered to the King'::text as title,
-         'Someone joined the church in prayer for Fort Wayne.'::text as detail,
-         concat(minutes::text, ' min') as metric,
-          '/help'::text as href,
+         ''::text as title,
+         null::text as detail,
+         minutes::text as metric,
+         '/log'::text as href,
          started_at as occurred_at
         from prayer_sessions
         where campaign_id = $1
@@ -125,9 +132,9 @@ export async function getPublicRecentActivity() {
        select
          id::text,
          'request'::text as kind,
-         'Community prayer shared'::text as title,
-         'A church member shared a request with the signed-in community.'::text as detail,
-          'SHARED'::text as metric,
+         'Someone shared a prayer request with the church'::text as title,
+         null::text as detail,
+         null::text as metric,
          '/requests'::text as href,
          created_at as occurred_at
        from prayer_requests
@@ -141,9 +148,9 @@ export async function getPublicRecentActivity() {
        select
          id::text,
          'prompt'::text as kind,
-         'New prayer prompt'::text as title,
-         title as detail,
-         category as metric,
+         concat('New prayer idea: ', title) as title,
+         null::text as detail,
+         null::text as metric,
          '/prompts'::text as href,
          publish_date::timestamptz as occurred_at
        from prayer_prompts
@@ -151,23 +158,96 @@ export async function getPublicRecentActivity() {
          and publish_date <= current_date
      ) activity
      order by occurred_at desc
-     limit 4`,
+     limit 10`,
     [campaign?.id ?? null]
   );
 
   return result.rows.map((row) => ({
     id: `${row.kind}-${row.id}`,
     kind: row.kind,
-    title: row.title,
+    title:
+      row.kind === "session" ? sessionActivityTitle(Number(row.metric)) : row.title,
     detail: row.detail,
-    metric: row.metric,
+    metric: row.kind === "session" ? null : row.metric,
     href: row.href,
     occurredAt: formatTimestamp(row.occurred_at)
   })) satisfies PublicActivityItem[];
 }
 
+export type PublicSessionPulse = {
+  id: string;
+  title: string;
+  occurredAt: string;
+};
+
+export async function getPrayerClockEvents() {
+  const campaign = await getCurrentCampaign();
+  if (!campaign) {
+    return [];
+  }
+
+  const result = await query<{ minutes: number; started_at: string | Date }>(
+    `select minutes, started_at
+     from prayer_sessions
+     where campaign_id = $1
+       and started_at < now()
+       and started_at + make_interval(mins => minutes) > now() - interval '24 hours'
+     order by started_at`,
+    [campaign.id]
+  );
+
+  return result.rows.map((row) => ({
+    startedAt: formatTimestamp(row.started_at),
+    minutes: Number(row.minutes)
+  }));
+}
+
+export async function getRecentPublicSessionPulse(limit = 8): Promise<PublicSessionPulse[]> {
+  const campaign = await getCurrentCampaign();
+  if (!campaign) {
+    return [];
+  }
+
+  const result = await query<{ id: string; minutes: number; started_at: string | Date }>(
+    `select id::text, minutes, started_at
+     from prayer_sessions
+     where campaign_id = $1
+     order by started_at desc
+     limit $2`,
+    [campaign.id, limit]
+  );
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    title: sessionActivityTitle(Number(row.minutes)),
+    occurredAt: formatTimestamp(row.started_at)
+  }));
+}
+
+export async function getRecentPrayerSessions(userId: string, limit = 40) {
+  const result = await query<PrayerSessionEntry>(
+    `select
+       s.id,
+       s.minutes,
+       s.started_at as "startedAt",
+       s.notes,
+       p.title as "promptTitle",
+       p.category as "promptCategory",
+       r.title as "requestTitle",
+       s.focus_label as "focusLabel"
+     from prayer_sessions s
+     left join prayer_prompts p on p.id = s.prompt_id
+     left join prayer_requests r on r.id = s.request_id
+     where s.user_id = $1
+     order by s.started_at desc
+     limit $2`,
+    [userId, limit]
+  );
+  return result.rows;
+}
+
 export async function getDashboardSnapshot(userId: string) {
-  const [minutesResult, weekDaysResult, recentSessionsResult] = await Promise.all([
+  const [minutesResult, weekDaysResult] = await Promise.all([
     query<{ total_minutes: string | null }>(
       `select coalesce(sum(minutes), 0)::text as total_minutes
        from prayer_sessions
@@ -197,33 +277,6 @@ export async function getDashboardSnapshot(userId: string) {
        group by days.day_index, bounds.current_weekday
        order by days.day_index`,
       [userId]
-    ),
-    query<{
-      id: string;
-      minutes: number;
-      startedAt: string;
-      notes: string | null;
-       promptTitle: string | null;
-       promptCategory: string | null;
-       requestTitle: string | null;
-       focusLabel: string | null;
-    }>(
-      `select
-         s.id,
-         s.minutes,
-         s.started_at as "startedAt",
-         s.notes,
-         p.title as "promptTitle",
-         p.category as "promptCategory",
-         r.title as "requestTitle",
-         s.focus_label as "focusLabel"
-       from prayer_sessions s
-       left join prayer_prompts p on p.id = s.prompt_id
-       left join prayer_requests r on r.id = s.request_id
-       where s.user_id = $1
-       order by s.started_at desc
-       limit 8`,
-      [userId]
     )
   ]);
 
@@ -236,9 +289,39 @@ export async function getDashboardSnapshot(userId: string) {
     totalMinutes: Number(minutesResult.rows[0]?.total_minutes ?? 0),
     thisWeekMinutes: weekDays.reduce((total, day) => total + day.minutes, 0),
     currentWeekday: Number(weekDaysResult.rows[0]?.current_weekday ?? 0),
-    weekDays,
-    recentSessions: recentSessionsResult.rows,
+    weekDays
   } satisfies DashboardSnapshot;
+}
+
+/** Compact Sunday–Saturday minutes for the signed-in header ring. */
+export async function getHeaderWeeklyPace(userId: string): Promise<HeaderWeeklyPace> {
+  const campaign = await getCurrentCampaign();
+  const [minutesResult, pledgeResult] = await Promise.all([
+    query<{ minutes: string }>(
+      `select coalesce(sum(minutes), 0)::text as minutes
+       from prayer_sessions
+       where user_id = $1
+         and started_at >= (date_trunc('week', now() at time zone 'America/Indiana/Indianapolis' + interval '1 day') - interval '1 day')
+             at time zone 'America/Indiana/Indianapolis'`,
+      [userId]
+    ),
+    campaign
+      ? query<{ minutes_per_week: number }>(
+          `select minutes_per_week
+           from pledges
+           where campaign_id = $1
+             and user_id = $2
+             and withdrawn_at is null
+           limit 1`,
+          [campaign.id, userId]
+        )
+      : Promise.resolve({ rows: [] as Array<{ minutes_per_week: number }> })
+  ]);
+
+  return {
+    thisWeekMinutes: Number(minutesResult.rows[0]?.minutes ?? 0),
+    goalMinutes: pledgeResult.rows[0]?.minutes_per_week ?? null
+  };
 }
 
 export async function getCampaignProgressPercent(goalMinutes?: number) {

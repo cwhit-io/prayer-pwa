@@ -71,9 +71,9 @@ export default async function HelpPage() {
               <Link href="/guided-prayer" className="mt-4 inline-flex font-black text-yellow">Start guided prayer</Link>
             </article>
             <article className="plc-panel p-5">
-              <h3 className="text-xl font-black text-white">Add prayer completed earlier</h3>
-              <p className="mt-2 leading-7 text-white/70">Already prayed without the timer? Record the date and whole number of minutes without starting another session.</p>
-              <Link href="/add-time" className="mt-4 inline-flex font-black text-yellow">Add completed time</Link>
+              <h3 className="text-xl font-black text-white">Keep a prayer log</h3>
+              <p className="mt-2 leading-7 text-white/70">Look back on recent prayer and add minutes from earlier if you did not use the timer.</p>
+              <Link href="/add-time" className="mt-4 inline-flex font-black text-yellow">Open prayer log</Link>
             </article>
             <article className="plc-panel p-5">
               <h3 className="text-xl font-black text-white">Choose someone to pray for</h3>

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "release": "bash deploy/release.sh",
     "start": "next start",
     "db:migrate": "node scripts/migrate.mjs",
     "test": "node --test --experimental-strip-types tests/*.test.mjs",

@@ -12,7 +12,7 @@ This repository uses a simple documentation-first workflow so future agents can 
 - If the stack changes, update both `plan-tracker.md` and `README.md` so the repo stays honest.
 - Run `npm run ux:audit` after meaningful user-flow changes when practical, then scan `ux-reports/latest.md` for obvious friction.
 - Run `npm run ux:browser` after visual, routing, navigation, or CTA changes, then review `ux-reports/browser-latest.md` and its screenshots.
-- **Always rebuild and deploy after user-visible changes** so they can be seen on fortwayneprays.org without asking: `npm run build` then `systemctl --user restart prayer-pwa`. Smoke-check local `:3000` and the public domain when practical.
+- **Always release after user-visible changes** so they can be seen on fortwayneprays.org without asking: `npm run release` (isolated build, migrate, blue-green slot flip). Do **not** run `npm run build` against the live `.next` tree, and do **not** `systemctl restart prayer-pwa` for a normal deploy (that restarts the :3000 proxy). Smoke-check local `:3000` and the public domain when practical.
 
 ## Suggested Update Pattern
 
@@ -33,6 +33,6 @@ When you make a meaningful change:
 This repo has completed Phases 1–4 and **Phase 4.5 Planning Center** (OTP login, unlinked fallback registration, Family/Friends lists, bulk sync, writeback queue). Notifications admin + event hooks are in place; weekly cron dispatch still open.
 
 **Production domains:** [https://fortwayneprays.org](https://fortwayneprays.org) (canonical), [https://prayfw.org](https://prayfw.org) (alias; allowed origins in `next.config.mjs`)  
-Cloudflare Tunnel → host **port 3000**. Run with `systemctl --user restart prayer-pwa` after `npm run build`. Details in `handoff.md` § Production / domain.
+Cloudflare Tunnel → host **port 3000** (reverse proxy → app slot :3001 or :3002). Deploy with `npm run release`. Details in `handoff.md` § Production / domain.
 
 Read `handoff.md`, `plan-tracker.md`, `tracker.md`, and `changelog.md` before continuing.

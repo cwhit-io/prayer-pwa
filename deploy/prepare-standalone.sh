@@ -1,16 +1,30 @@
 #!/usr/bin/env bash
+# Copy Next standalone output plus public/ and static assets into a destination.
+# When NEXT_DIST_DIR is set (release builds use .next-build), static files live
+# under that folder name inside standalone — not always `.next/static`.
 set -euo pipefail
 
-APP_DIR="/home/blackhawk/prayer-pwa"
-STANDALONE_DIR="$APP_DIR/.next/standalone"
+APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+DIST_DIR="${NEXT_DIST_DIR:-.next}"
+SRC="$APP_DIR/$DIST_DIR/standalone"
+DEST="${STANDALONE_DEST:-$SRC}"
 
-if [ ! -f "$STANDALONE_DIR/server.js" ]; then
-  echo "Standalone server is missing. Run npm run build first." >&2
+if [ ! -f "$SRC/server.js" ]; then
+  echo "Standalone server is missing at $SRC/server.js. Run npm run build first." >&2
   exit 1
 fi
 
-rm -rf "$STANDALONE_DIR/public" "$STANDALONE_DIR/.next/static"
-mkdir -p "$STANDALONE_DIR/.next"
+if [ ! -d "$APP_DIR/$DIST_DIR/static" ]; then
+  echo "Missing $APP_DIR/$DIST_DIR/static. Run npm run build first." >&2
+  exit 1
+fi
 
-cp -R "$APP_DIR/public" "$STANDALONE_DIR/public"
-cp -R "$APP_DIR/.next/static" "$STANDALONE_DIR/.next/static"
+if [ "$DEST" != "$SRC" ]; then
+  rm -rf "$DEST"
+  cp -a "$SRC" "$DEST"
+fi
+
+rm -rf "$DEST/public" "$DEST/$DIST_DIR/static"
+mkdir -p "$DEST/$DIST_DIR"
+cp -a "$APP_DIR/public" "$DEST/public"
+cp -a "$APP_DIR/$DIST_DIR/static" "$DEST/$DIST_DIR/static"

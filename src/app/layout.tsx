@@ -3,14 +3,18 @@ import type { ReactNode } from "react";
 import { Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { ClearStoredLoginChallenge } from "@/app/auth/login-challenge-state";
 import { AuthSessionRefresh } from "@/app/components/auth-session-refresh";
 import { Roboto, Roboto_Condensed } from "next/font/google";
 import { ChunkLoadRecovery } from "@/app/components/chunk-load-recovery";
+import { PrayerActivityToast } from "@/app/components/prayer-activity-toast";
 import { ParticipantNavigation } from "@/app/components/participant-navigation";
 import { ScrollToTop } from "@/app/components/scroll-to-top";
 import { SkipToMainContent } from "@/app/components/skip-to-main-content";
 import { SITE_DOMAIN, SITE_NAME, SITE_URL, SiteFooter } from "@/app/components/site-footer";
+import { WeeklyPaceRing } from "@/app/components/weekly-pace-ring";
 import { getCurrentUser, hasCapability } from "@/lib/auth";
+import { getHeaderWeeklyPace } from "@/lib/campaign";
 import { getPendingBoardReviewCount } from "@/lib/prayer-requests";
 import "./globals.css";
 
@@ -77,9 +81,12 @@ export default async function RootLayout({
   children: ReactNode;
 }>) {
   const user = await getCurrentUser();
-  const staffReviewCount = hasCapability(user?.role, "community-requests:moderate")
-    ? await getPendingBoardReviewCount()
-    : 0;
+  const [staffReviewCount, weeklyPace] = await Promise.all([
+    hasCapability(user?.role, "community-requests:moderate")
+      ? getPendingBoardReviewCount()
+      : Promise.resolve(0),
+    user ? getHeaderWeeklyPace(user.id) : Promise.resolve(null)
+  ]);
 
   return (
     <html lang="en" className={`${robotoCondensed.variable} ${robotoReading.variable}`}>
@@ -87,14 +94,19 @@ export default async function RootLayout({
         <SkipToMainContent />
         <ChunkLoadRecovery />
         <AuthSessionRefresh enabled={Boolean(user)} />
+        {user ? <ClearStoredLoginChallenge /> : null}
         <Suspense fallback={null}>
           <ScrollToTop />
         </Suspense>
+        <PrayerActivityToast />
         <div className="plc-chrome sticky top-0 z-50 border-b backdrop-blur">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
-            <Link href="/" className="flex shrink-0 items-center" aria-label="Pray Like Crazy home">
-              <Image src="/header-logo@web.png" alt="Pray Like Crazy" width={800} height={226} priority className="h-10 w-auto object-contain sm:h-12" />
-            </Link>
+            <div className="flex min-w-0 items-center gap-3">
+              <Link href="/" className="flex shrink-0 items-center" aria-label="Pray Like Crazy home">
+                <Image src="/header-logo@web.png" alt="Pray Like Crazy" width={800} height={226} priority className="h-10 w-auto object-contain sm:h-12" />
+              </Link>
+              {weeklyPace ? <WeeklyPaceRing {...weeklyPace} /> : null}
+            </div>
             <ParticipantNavigation
               isSignedIn={Boolean(user)}
               role={user?.role}

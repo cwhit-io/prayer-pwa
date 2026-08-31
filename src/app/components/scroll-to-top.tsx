@@ -3,9 +3,23 @@
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 
+function jumpToTop() {
+  const html = document.documentElement;
+  const previous = html.style.scrollBehavior;
+  html.style.scrollBehavior = "auto";
+  const active = document.activeElement;
+  if (active instanceof HTMLElement && !active.closest("main")) {
+    active.blur();
+  }
+  window.scrollTo(0, 0);
+  html.scrollTop = 0;
+  document.body.scrollTop = 0;
+  html.style.scrollBehavior = previous;
+}
+
 /**
- * Soft client navigations can leave the window scrolled mid-page.
- * Force the next view to open at the top whenever the route changes.
+ * Soft client navigations can leave the window at the footer or keep a
+ * bottom-nav control focused, which then scrolls into view. Reset to top.
  */
 export function ScrollToTop() {
   const pathname = usePathname();
@@ -13,26 +27,23 @@ export function ScrollToTop() {
   const search = searchParams.toString();
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
     if ("scrollRestoration" in window.history) {
       window.history.scrollRestoration = "manual";
     }
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    // Hash links (e.g. #section) should still land on the target.
     if (window.location.hash) {
       return;
     }
 
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    jumpToTop();
+    const frame = window.requestAnimationFrame(jumpToTop);
+    const timeout = window.setTimeout(jumpToTop, 50);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+    };
   }, [pathname, search]);
 
   return null;

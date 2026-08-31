@@ -65,6 +65,19 @@
 - [x] Admin: add user from Planning Center + manual prayer session/pledge for any user
 - [x] Repair prompt punctuation (Windows-1252 / � diamonds) on import, save, display, and existing rows
 - [x] Safari bottom-nav Me menu: button popover instead of details/summary
+- [x] PRAY start box: equal pray-on-your-own / guided actions, log-prayer in the same panel
+- [x] Campaign start date September 13, 2026 on campaign, settings, and pledges
+- [x] Flatten Me/profile to a direct /auth link; Sign out on the profile page
+- [x] Prayer Log nav item with journal of recent prayer (moved off Me)
+- [x] Sign-in: single-match auto-complete, preserve in-progress challenge, expired-code message
+- [x] Homepage 24-hour prayer clock: organic comet trail (data thickness + fade from now-orb, no repeating zigzag)
+- [x] Demo filming account Alex (260-276-7404 / 000000); friends + prayer log reset on logout
+- [x] Alex demo login disabled (`DEMO_ACCOUNT_ENABLED = false`)
+- [x] Early-morning add-time save: clamp future Fort Wayne noon so start is not after end
+- [x] Header weekly pace ring; navigation no longer jumps to page bottom; quieter /gauge header
+- [x] Blue-green release: isolated `.next-build`, proxy on :3000, app slots :3001/:3002 (`npm run release`)
+- [x] Gauge display hides the headline text; release health-check requires CSS/JS before swap
+- [ ] Revisit homepage 24-hour prayer clock (hidden for now)
 - [ ] Phase 7 scheduled/cron dispatch for daily/weekly types
 - [ ] Series content / campaign-week prompts
 - [ ] Light reporting (CSV export)

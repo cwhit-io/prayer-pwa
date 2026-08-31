@@ -2,6 +2,36 @@
 
 ## Unreleased
 
+- 2026-08-31: Elastic Email HTML for a three-message Pray Like Crazy series in `docs/elastic-email/`.
+- 2026-08-26: Manual/add-time prayer save no longer fails before local noon with “start time must be before its end time.”
+- 2026-08-26: Disabled the Alex demo login (`000000` / `260-276-7404`); that number uses a real OTP again.
+- 2026-08-26: Homepage pulse: committed minutes are the large total; minutes prayed sit as the smaller line underneath.
+- 2026-08-26: Prayer pulse milestone labels (100K, 500K, 1M) sit inside the arc so 500K is not clipped on wide screens.
+- 2026-08-26: `/gauge` shows committed minutes as the large number and arc; prayed minutes are omitted on that screen.
+- 2026-08-26: `/gauge` no longer shows the “One church. One year.” headline — meter only.
+- 2026-08-26: `npm run release` will not flip the proxy until the new slot serves HTML plus CSS/JS and `/auth`, `/log`, `/help`.
+- 2026-08-26: Zero-downtime deploys: `npm run release` builds into `.next-build`, starts the idle app slot (3001/3002), then flips the :3000 proxy. Cloudflare Tunnel still targets :3000. Static CSS/JS are copied into the distDir folder the standalone server actually serves (`/.next-build/static`, not `/.next/static`).
+- 2026-08-26: Stop some navigations from landing at the bottom of the next page (scroll reset + overflow-anchor).
+- 2026-08-26: Signed-in header shows a small weekly prayer ring (this week vs weekly pace).
+- 2026-08-26: `/gauge` headline is smaller, with a slow gold glow behind the meter.
+- 2026-08-26: Demo filming account **Alex** (`260-276-7404`) always accepts sign-in code `000000` (no SMS). Friends names and prayer log are cleared on logout.
+- 2026-08-25: Homepage 24-hour prayer clock hidden until the trail treatment is revisited.
+- 2026-08-25: `/gauge` pulse and count-up run slower for display screens.
+- 2026-08-25: `/gauge` display mode fills ultrawide viewports (arc sized to screen height, no leftover 68rem cap).
+- 2026-08-25: Homepage 24-hour prayer clock: gold comet trail of last-day intensity, midnight at the top, glowing “now” orb. Trail thickness follows real prayer (thick where it was high, hairline where it was quiet), brightest/thickest at the now-orb and fading back; path is organic, not a repeating zigzag.
+- 2026-08-25: Subtle prayer-saved toast on Home, Requests, Prayer Log, and Me (not on PRAY); drops in from the top left and fades quickly.
+- 2026-08-25: Homepage activity groups last ~75 minutes under Happening now, older items collapse under Earlier today, with a thin timeline through the icons.
+- 2026-08-25: Homepage session activity copy no longer assumes prayer is for Fort Wayne.
+- 2026-08-25: Homepage session activity copy varies by duration (paused / interceded / spent X minutes).
+- 2026-08-25: Homepage recent activity uses unique event copy and relative timestamps (with exact time on hover) for live social proof.
+- 2026-08-25: Me page: removed lifetime prayer recap, Pray now / Prayer log buttons, and the church-wide pledge footnote.
+- 2026-08-25: Prayer Log keeps Log completed prayer at the top; PRAY still uses that label and opens the form expanded.
+- 2026-08-25: Sign-in: skip household picker for a single match; keep in-progress codes if Sign in is tapped; expired codes show a message instead of the blank form.
+- 2026-08-25: Share-a-request copy: Connect Card distinction at the top; review notice sits with the submit action.
+- 2026-08-25: Renamed Add Time to Prayer Log and moved recent prayer history there as a journal; Me no longer lists recent sessions.
+- 2026-08-25: Flattened the Me/profile control to a direct profile link (no popup); Sign out lives on the Me page.
+- 2026-08-25: Campaign start date is September 13, 2026 everywhere (campaign row, settings, and pledge dates); 52-week end aligned to September 11, 2027.
+- 2026-08-24: PRAY start box now has equal-sized **Pray on your own** and **Start guided prayer** actions, with **Log prayer from earlier** in the same panel.
 - 2026-08-24: Repaired diamond (�) apostrophes/quotes in campaign and ACTS prompts — Windows-1252 CSV import now decodes correctly, copy is sanitized on save/display, and existing rows were migrated.
 - 2026-08-24: Replaced the Safari-fragile `<details>` “Me” control in the bottom nav with a button menu so the bar no longer jumps or shows a disclosure marker.
 - 2026-07-29: Allowed `prayfw.org` (and `www` / `PrayFW.org`) as public origins in `next.config.mjs` for server actions / CSRF behind Cloudflare Tunnel; docs note it as an alias of fortwayneprays.org.

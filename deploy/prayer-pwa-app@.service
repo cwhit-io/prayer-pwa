@@ -1,0 +1,24 @@
+[Unit]
+Description=Fort Wayne Prays app slot %i
+Documentation=https://fortwayneprays.org
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=blackhawk
+Group=blackhawk
+WorkingDirectory=/home/blackhawk/prayer-pwa/releases/%i
+Environment=NODE_ENV=production
+Environment=PORT=%i
+Environment=HOSTNAME=127.0.0.1
+EnvironmentFile=-/home/blackhawk/prayer-pwa/.env.local
+LoadCredential=notification-scheduler-secret:/home/blackhawk/.config/prayer-pwa/notification-scheduler-secret
+ExecStart=/usr/bin/node /home/blackhawk/prayer-pwa/releases/%i/server.js
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=60
+TimeoutStopSec=20
+
+[Install]
+WantedBy=default.target

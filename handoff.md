@@ -18,11 +18,12 @@
 | Canonical domain | `fortwayneprays.org` (apex; `www` not configured) |
 | Alias domain | `prayfw.org` (allowed in `next.config.mjs` for server actions / CSRF; wire in Cloudflare Tunnel when ready) |
 | App URL env | `NEXT_PUBLIC_APP_URL=https://fortwayneprays.org` in `.env.local` (canonical; both hosts serve the same app) |
-| Process | `systemctl --user status/start/restart prayer-pwa` |
-| Unit file | `deploy/prayer-pwa.service` (user unit under `~/.config/systemd/user/`) |
-| After code changes | `cd ~/prayer-pwa && npm run build && systemctl --user restart prayer-pwa` |
+| Process | `prayer-pwa.service` is the :3000 reverse proxy; app slots are `prayer-pwa-app@3001` / `@3002` |
+| Unit files | `deploy/prayer-pwa.service`, `deploy/prayer-pwa-app@.service` (copied to `~/.config/systemd/user/` by release) |
+| After code changes | `cd ~/prayer-pwa && npm run release` (build into `.next-build`, migrate, start idle slot, flip proxy, drain old slot) |
+| Live files | Never build into `.next` while a slot is serving; each slot runs from `releases/<port>/` |
 | Postgres | Docker Compose service `prayer-pwa-postgres-1` |
-| Tunnel | system `cloudflared.service` (token-based); do not reinvent tunnel — only keep app listening on **3000** |
+| Tunnel | system `cloudflared.service` (token-based); do not reinvent tunnel — keep **proxy** listening on **3000** |
 | Container image | GitHub Actions workflow `.github/workflows/container.yml` builds on PRs and publishes `ghcr.io/cwhit-io/prayer-pwa` on `main`/tags |
 
 Footer branding: Fort Wayne Prays · fortwayneprays.org · © Blackhawk Ministries · 7400 E State Blvd, Fort Wayne, IN 46815 (`src/app/components/site-footer.tsx`).
@@ -35,6 +36,10 @@ Footer branding: Fort Wayne Prays · fortwayneprays.org · © Blackhawk Ministri
 - **Community:** `/admin/community` hub · `/admin/requests` · `/admin/moderation` (keyword CSV)
 - **People:** `/admin/planning-center`
 - **Messages:** `/admin/notifications`
+
+## Demo video account
+
+**Disabled.** `DEMO_ACCOUNT_ENABLED = false` in `src/lib/demo-account.ts`. Phone `260-276-7404` is a normal login (Twilio OTP). Re-enable that flag and set `is_demo` on the Alex user if filming needs the `000000` bypass again.
 
 ## Member Planning Center login
 

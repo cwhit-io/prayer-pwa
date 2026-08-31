@@ -9,6 +9,13 @@ import { replacePrayerPeopleForUser } from "@/lib/pco-people";
 import { query } from "@/lib/postgres";
 import { getPlanningCenterCredentials, getTwilioCredentials } from "@/lib/settings";
 import { checkTwilioVerify, startTwilioVerify } from "@/lib/twilio";
+import {
+  DEMO_ACCOUNT_EMAIL,
+  DEMO_ACCOUNT_NAME,
+  DEMO_LOGIN_CODE,
+  isDemoLoginCode,
+  isDemoLoginContact
+} from "@/lib/demo-account";
 
 const CHALLENGE_MINUTES = 10;
 const MAX_ATTEMPTS = 5;
@@ -120,6 +127,16 @@ function mapUserRow(user: UserRow) {
 }
 
 async function findUserIdByContact(contactType: ContactType, contact: string) {
+  if (isDemoLoginContact(contactType, contact)) {
+    const demo = await query<{ id: string }>(
+      `select id from app_users where is_demo and email = $1 limit 1`,
+      [DEMO_ACCOUNT_EMAIL]
+    );
+    if (demo.rows[0]?.id) {
+      return demo.rows[0].id;
+    }
+  }
+
   const byMethod = await query<{ user_id: string }>(
     `select distinct user_id
      from user_contact_methods
@@ -324,8 +341,37 @@ async function sendLoginCode(input: {
   }
 }
 
+async function startDemoLogin(type: ContactType, normalized: string) {
+  const result = await query<{ id: string }>(
+    `insert into login_challenges (
+       destination_type,
+       destination_normalized,
+       code_hash,
+       expires_at,
+       candidate_people,
+       debug_code
+     )
+     values ($1, $2, $3, now() + ($4 || ' minutes')::interval, '[]'::jsonb, null)
+     returning id`,
+    [type, normalized, hashCode(DEMO_LOGIN_CODE), CHALLENGE_MINUTES]
+  );
+
+  return {
+    challengeId: result.rows[0].id,
+    contactType: type,
+    contact: normalized,
+    delivery: "sent" as const,
+    debugCode: null,
+    hasPlanningCenterMatch: false
+  };
+}
+
 export async function startPlanningCenterLogin(contactInput: string) {
   const { type, normalized } = normalizeLoginContact(contactInput);
+  if (isDemoLoginContact(type, normalized)) {
+    return startDemoLogin(type, normalized);
+  }
+
   await enforceLoginRateLimits(type, normalized);
 
   // May be empty — after OTP the person can create an unlinked account.
@@ -505,7 +551,9 @@ export async function verifyPlanningCenterLoginCode(input: {
 
   let valid = false;
 
-  if (challenge.code_hash === TWILIO_VERIFY_CODE_HASH) {
+  if (isDemoLoginContact(challenge.destination_type, challenge.destination_normalized)) {
+    valid = isDemoLoginCode(input.code);
+  } else if (challenge.code_hash === TWILIO_VERIFY_CODE_HASH) {
     // Phone OTP managed by Twilio Verify.
     try {
       const check = await checkTwilioVerify({
@@ -813,9 +861,17 @@ export async function completeUnlinkedLogin(input: {
     }
 
     const displayName = input.name?.trim();
-    if (displayName && displayName !== existing.name) {
+    if (
+      displayName &&
+      displayName !== existing.name &&
+      !isDemoLoginContact(contactType, contact)
+    ) {
       await query(`update app_users set name = $2 where id = $1`, [existing.id, displayName]);
       existing.name = displayName;
+    }
+    if (isDemoLoginContact(contactType, contact) && existing.name !== DEMO_ACCOUNT_NAME) {
+      await query(`update app_users set name = $2 where id = $1`, [existing.id, DEMO_ACCOUNT_NAME]);
+      existing.name = DEMO_ACCOUNT_NAME;
     }
 
     await attachContactMethod({
@@ -894,4 +950,17 @@ export async function tryAutoCompleteUnlinkedLogin(challengeId: string) {
   }
 
   return completeUnlinkedLogin({ challengeId });
+}
+
+/** After OTP verify: skip the household picker when only one person matched. */
+export async function tryCompleteSingleCandidateLogin(challengeId: string) {
+  const verified = await getVerifiedLoginChallenge(challengeId);
+  if (!verified || verified.candidates.length !== 1) {
+    return null;
+  }
+
+  return completePlanningCenterLogin({
+    challengeId,
+    personId: verified.candidates[0].personId
+  });
 }

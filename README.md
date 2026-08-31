@@ -14,7 +14,7 @@ Progressive Web App for **Fort Wayne Prays** (FortWaynePrays.org) — Blackhawk 
 
 Phases 1–4 and **Phase 4.5 (Planning Center)** are complete: OTP household login, Family/Friends lists, bulk sync, and optional custom-field writeback queue. Members never see PCO IDs. Campaign focuses are Future, Family, Finances, and Friends.
 
-**Public site:** [https://fortwayneprays.org](https://fortwayneprays.org) via Cloudflare Tunnel → this host port **3000**. App runs with `systemctl --user start prayer-pwa` (see `deploy/prayer-pwa.service`). Local Postgres via Docker.
+**Public site:** [https://fortwayneprays.org](https://fortwayneprays.org) via Cloudflare Tunnel → this host port **3000** (proxy → app slot). Deploy with `npm run release` (see `deploy/release.sh`). Local Postgres via Docker.
 
 ## Handoff
 

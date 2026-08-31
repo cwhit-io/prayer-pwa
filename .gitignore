@@ -1,5 +1,7 @@
 node_modules/
 .next/
+.next-build/
+releases/
 dist/
 build/
 .env
@@ -10,4 +12,6 @@ coverage/
 tsconfig.tsbuildinfo
 ux-reports/*.md
 ux-reports/screenshots/
+ux-reports/verify-*/
 !ux-reports/.gitkeep
+docs/explainer-video/capture/

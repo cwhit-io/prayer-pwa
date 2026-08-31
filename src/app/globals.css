@@ -36,6 +36,7 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-anchor: none;
   /* Slightly larger base so rem / Tailwind text scales up a notch (default 16px → 17px). */
   font-size: 106.25%;
 }
@@ -204,11 +205,6 @@ nav {
   color: var(--yellow);
 }
 
-.mobile-profile-menu {
-  min-width: 0;
-  width: 100%;
-}
-
 /* Safari still draws a disclosure triangle unless both marker types are hidden. */
 summary {
   list-style: none;
@@ -218,49 +214,6 @@ summary::-webkit-details-marker,
 summary::marker {
   content: none;
   display: none;
-}
-
-.account-menu-popover {
-  min-width: 11rem;
-  border-radius: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: #1d1d1d;
-  padding: 0.5rem;
-  text-align: left;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.55);
-  z-index: 60;
-}
-
-.account-menu-popover-mobile {
-  position: fixed;
-  right: 0.5rem;
-  bottom: calc(4.85rem + env(safe-area-inset-bottom, 0px));
-}
-
-.account-menu-popover-desktop {
-  position: absolute;
-  right: 0;
-  top: 3rem;
-}
-
-.profile-menu-link {
-  align-items: center;
-  border-radius: 0.6rem;
-  color: var(--text-secondary);
-  display: flex;
-  font-size: 0.85rem;
-  font-weight: 900;
-  justify-content: flex-start;
-  padding: 0.7rem 0.8rem;
-  text-transform: uppercase;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.profile-menu-link:hover,
-.profile-menu-link:focus-visible,
-.profile-menu-link[aria-current="page"] {
-  background: var(--surface-hover);
-  color: var(--text);
 }
 
 /* Stylized primary PRAY CTA in nav */
@@ -443,6 +396,70 @@ summary::marker {
   border: 1px solid var(--border);
   border-radius: 1.15rem;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+}
+
+.activity-stream {
+  position: relative;
+}
+
+.activity-stream::before {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 211, 0, 0.38),
+    rgba(255, 211, 0, 0.12) 55%,
+    rgba(255, 211, 0, 0.02)
+  );
+  bottom: 1.15rem;
+  content: "";
+  left: 1.5rem;
+  position: absolute;
+  top: 1.15rem;
+  transform: translateX(-50%);
+  width: 1px;
+}
+
+.activity-stream-node {
+  background: var(--surface-raised);
+  isolation: isolate;
+  position: relative;
+  z-index: 1;
+}
+
+.prayer-activity-toast {
+  animation: prayer-toast-in 0.28s ease-out, prayer-toast-out 0.35s ease-in 2.85s forwards;
+  background: rgba(20, 20, 20, 0.92);
+  border: 1px solid rgba(255, 211, 0, 0.28);
+  border-radius: 0.75rem;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  color: rgba(255, 211, 0, 0.88);
+  font-size: 0.78rem;
+  font-weight: 700;
+  left: 0.85rem;
+  line-height: 1.35;
+  max-width: min(18.5rem, calc(100vw - 6.5rem));
+  padding: 0.7rem 0.9rem;
+  pointer-events: none;
+  position: fixed;
+  top: 5.15rem;
+  z-index: 40;
+}
+
+@keyframes prayer-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-0.7rem, -0.85rem);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes prayer-toast-out {
+  to {
+    opacity: 0;
+    transform: translate(-0.4rem, -0.4rem);
+  }
 }
 
 .stat-cell {
@@ -757,25 +774,102 @@ summary::marker {
 }
 
 .prayer-pulse-display {
+  background:
+    radial-gradient(ellipse 90% 70% at 50% 78%, rgba(255, 211, 0, 0.16), transparent 58%),
+    radial-gradient(circle at 18% 12%, rgba(255, 211, 0, 0.08), transparent 34%),
+    linear-gradient(180deg, #1a1408 0%, #0c0c0c 46%, #070707 100%);
   border: 0;
   display: grid;
+  height: 100vh;
+  height: 100dvh;
   inset: 0;
   min-height: 100vh;
-  min-height: 100svh;
-  overflow: auto;
+  min-height: 100dvh;
+  overflow: hidden;
   place-items: center;
   position: fixed;
   width: 100vw;
   z-index: 100;
 }
 
+.prayer-pulse-display::before,
+.prayer-pulse-display::after {
+  background: radial-gradient(circle, rgba(255, 211, 0, 0.28), transparent 68%);
+  border-radius: 50%;
+  filter: blur(72px);
+  height: min(70vw, 42rem);
+  mask: none;
+  opacity: 0.45;
+  transform: none;
+  width: min(70vw, 42rem);
+  animation: gauge-orb 22s ease-in-out infinite;
+}
+
+.prayer-pulse-display::before {
+  left: 8%;
+  top: 18%;
+}
+
+.prayer-pulse-display::after {
+  animation-delay: -11s;
+  bottom: 6%;
+  left: auto;
+  right: 10%;
+  top: auto;
+}
+
 .prayer-pulse-display .prayer-pulse-shell {
-  padding-block: clamp(1.5rem, 4vh, 4rem);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  justify-content: center;
+  max-width: none;
+  padding: clamp(0.6rem, 2.2vh, 1.75rem) clamp(1rem, 3vw, 3.5rem);
   width: 100%;
 }
 
+.prayer-pulse-display .prayer-pulse-headline {
+  font-size: clamp(1.05rem, 2.2vw, 1.85rem);
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  max-width: none;
+}
+
 .prayer-pulse-display .prayer-pulse-gauge {
-  margin-top: clamp(1rem, 3vh, 2.5rem);
+  flex: 0 1 auto;
+  margin-top: 0;
+  max-height: calc(100dvh - 2rem);
+  max-width: min(98vw, calc((100dvh - 2rem) * 2));
+  width: 100%;
+}
+
+.prayer-pulse-display .prayer-pulse-svg {
+  max-height: calc(100dvh - 2rem);
+}
+
+.prayer-pulse-display .prayer-pulse-rings path {
+  animation-duration: 14s;
+}
+
+.prayer-pulse-display .prayer-pulse-rings path:last-child {
+  animation-delay: -7s;
+}
+
+.prayer-pulse-display .prayer-pulse-total {
+  font-size: clamp(3.4rem, 7.2vw, 10.5rem);
+}
+
+.prayer-pulse-display .prayer-pulse-label {
+  font-size: clamp(1.35rem, 3vw, 3.6rem);
+}
+
+.prayer-pulse-display .prayer-pulse-content {
+  bottom: 2%;
+  width: min(62%, 46rem);
+}
+
+.prayer-pulse-display .prayer-pulse-content p {
+  font-size: clamp(0.95rem, 1.5vw, 1.45rem);
 }
 
 .prayer-pulse-button {
@@ -819,6 +913,44 @@ summary::marker {
 .prayer-pulse-button-secondary:focus-visible {
   background: var(--yellow);
   color: #050505;
+}
+
+.weekly-pace-ring {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 2.5rem;
+  width: 2.5rem;
+  flex-shrink: 0;
+  color: var(--text);
+}
+
+.weekly-pace-ring:hover,
+.weekly-pace-ring:focus-visible {
+  color: var(--yellow);
+}
+
+.weekly-pace-ring-value {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+@keyframes gauge-orb {
+  0%,
+  100% {
+    opacity: 0.28;
+    transform: scale(1) translate(0, 0);
+  }
+  50% {
+    opacity: 0.58;
+    transform: scale(1.12) translate(4%, -3%);
+  }
 }
 
 @keyframes prayer-pulse-ring {
@@ -915,14 +1047,24 @@ summary::marker {
     animation: none;
   }
 
+  .prayer-pulse-display::before,
+  .prayer-pulse-display::after {
+    animation: none;
+  }
+
   .prayer-pulse-button {
     transition: none;
   }
 }
 
+body:has(.prayer-pulse-display) {
+  overflow: hidden;
+}
+
 body:has(.prayer-pulse-display) > .plc-chrome,
 body:has(.prayer-pulse-display) > footer,
-body:has(.prayer-pulse-display) > .skip-to-main-content {
+body:has(.prayer-pulse-display) > .skip-to-main-content,
+body:has(.prayer-pulse-display) .prayer-activity-toast {
   display: none;
 }
 

@@ -65,11 +65,6 @@ export function RequestForm({
             </span>
           </label>
         </div>
-        <p className="mt-3 text-sm leading-6 text-white/70">
-          {mode === "community"
-            ? "Community requests are reviewed and may take a little time to appear."
-            : "Private requests stay off the community board."}
-        </p>
       </fieldset>
       {!canShareCommunity ? (
         <p className="text-base leading-7 text-yellow">Connect your church profile to share on the community board. Private requests are available now.</p>
@@ -108,7 +103,7 @@ export function RequestForm({
 
       <p className="text-sm leading-6 text-white/70">
         {mode === "community"
-          ? "Your request may take a little time to appear while it is reviewed. You can track it under My requests."
+          ? "Community requests are reviewed and may take a little time to appear."
           : "Your private request will not appear on the community board. You can track it under My requests."}
       </p>
       <SubmitRequestButton />

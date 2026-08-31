@@ -1025,25 +1025,34 @@ export function ActsGuide({
       ) : null}
       {!sessionActive && mode === "simple" ? (
         <header className="plc-panel overflow-hidden p-5 text-center sm:p-6">
-          <div className="mx-auto max-w-2xl space-y-3">
+          <div className="mx-auto max-w-2xl space-y-4">
             <p className="plc-eyebrow">PRAY</p>
             <h1 className="brush-small text-4xl uppercase leading-none text-white sm:text-6xl">
               Start praying.
             </h1>
-            <button
-              type="button"
-              onClick={startSession}
-              className="inline-flex w-full max-w-sm items-center justify-center gap-3 rounded-2xl bg-yellow px-7 py-4 text-xl font-black uppercase text-black shadow-[0_18px_45px_rgba(255,211,0,0.28)] transition hover:-translate-y-0.5 sm:text-2xl"
-            >
-              <ClockIcon className="h-8 w-8" />
-              Start Timer
-            </button>
-            <Link href={guidedPrayerHref} className="plc-button-secondary mx-auto">
-              Start guided prayer
-            </Link>
             <p className="mx-auto max-w-md text-sm text-white/75">
-              Screen-off time counts. Save when you finish.
+              Pray on your own or with a guide. Both start a timer. Screen-off time counts — save when you finish.
             </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={startSession}
+                className="plc-button min-h-14 w-full items-center gap-2"
+              >
+                <ClockIcon className="h-5 w-5" />
+                Pray on your own
+              </button>
+              <Link
+                href={guidedPrayerHref}
+                className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-full border border-yellow/70 px-5 py-3 text-sm font-black uppercase text-yellow transition hover:border-yellow hover:bg-yellow/10"
+              >
+                <PromptIcon className="h-5 w-5" />
+                Start guided prayer
+              </Link>
+            </div>
+            <Link href="/add-time?entry=1" className="plc-button-secondary min-h-14 w-full items-center gap-2">
+              Log completed prayer
+            </Link>
           </div>
         </header>
       ) : !sessionActive ? (
@@ -1177,15 +1186,6 @@ export function ActsGuide({
             />
           </div>
       </section>
-      ) : null}
-
-      {mode === "simple" && !sessionActive ? (
-      <div className="flex justify-center border-t border-white/10 pt-6">
-        <Link href="/add-time" className="plc-button-secondary gap-2">
-          <ClockIcon className="h-5 w-5 text-yellow" />
-          Log prayer completed earlier
-        </Link>
-      </div>
       ) : null}
 
       {leaveDialogOpen && hasUnsavedTime ? (

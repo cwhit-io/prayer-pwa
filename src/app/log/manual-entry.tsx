@@ -50,7 +50,7 @@ export function ManualEntry({
     return (
       <div className="flex justify-center">
         <button type="button" onClick={() => setOpen(true)} className="plc-button-secondary">
-          Log prayer completed earlier
+          Log completed prayer
         </button>
       </div>
     );

@@ -130,7 +130,10 @@ export default async function MyRequestsPage({
             <div>
               <p className="plc-eyebrow">My requests</p>
               <h1 className="mt-2 text-4xl font-black uppercase text-white">Share a request.</h1>
-              <p className="plc-copy mt-2">Choose who can see your request. Share only what you feel comfortable sharing.</p>
+              <p className="plc-copy mt-2">
+                Choose who can see your request. Share only what you feel comfortable sharing. These requests are
+                separate from the Connect Card requests.
+              </p>
             </div>
             <Link href="/requests" className="plc-button-secondary">
               View board
