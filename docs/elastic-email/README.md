@@ -11,12 +11,12 @@ Three HTML templates for a launch series. Dark Pray Like Crazy styling, table-ba
 ## In Elastic Email
 
 1. Campaigns → create email → paste the HTML (source / HTML view).
-2. Replace the two video URLs (search the HTML):
+2. Video links:
 
-| Placeholder | Put |
+| URL in the HTML | Video |
 |---|---|
-| `https://fortwayneprays.org/watch/sunday-setup` | Sunday setup / how-to video |
-| `https://fortwayneprays.org/watch/why-pray-like-crazy` | Dave (or other) encouragement video — email 2 only |
+| `https://vimeo.com/1221846318` | Sunday setup — *Prayer App Explainer* (all three emails) |
+| `https://fortwayneprays.org/watch/why-pray-like-crazy` | Dave (or other) encouragement — **email 2 only**; replace when that clip is live |
 
 3. App button already goes to **https://fortwayneprays.org**.
 4. Footer uses Elastic merge tags `{unsubscribe}` and `{accountaddress}`.
