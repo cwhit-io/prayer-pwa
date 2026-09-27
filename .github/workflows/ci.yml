@@ -8,7 +8,8 @@ on:
   pull_request:
 
 jobs:
-  build:
+  ci-build:
+    name: CI build
     runs-on: ubuntu-latest
 
     steps:
