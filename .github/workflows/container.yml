@@ -17,7 +17,8 @@ env:
   IMAGE_NAME: ghcr.io/${{ github.repository }}
 
 jobs:
-  build:
+  container-build:
+    name: Container build
     runs-on: ubuntu-latest
 
     steps:
