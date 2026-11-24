@@ -1,0 +1,14 @@
+# prayer-pwa: runtime image built from the LIVE standalone release tree
+# (snapshot of /home/blackhawk/prayer-pwa/releases/3001, Next 15.4.0, BUILD_ID fNBzaGRHzw2v7asv55ACv).
+# No build step: the tree is already a Next "output: standalone" bundle (distDir .next-build).
+# Host node is v22 -> match major. sharp ships linuxmusl binaries so alpine works.
+FROM node:22-alpine
+WORKDIR /app
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1
+# .next-build/cache (ISR fetch/image cache) is excluded by .dockerignore; Next recreates it,
+# so /app must be writable by node (uid 1000, same uid as host blackhawk).
+COPY --chown=node:node app-3001/ /app/
+USER node
+EXPOSE 3000
+CMD ["node", "server.js"]
