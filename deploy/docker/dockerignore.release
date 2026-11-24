@@ -1,0 +1,5 @@
+# build context = this dir; only app-3001 is needed
+*
+!app-3001
+app-3001/.next-build/cache
+**/.env*

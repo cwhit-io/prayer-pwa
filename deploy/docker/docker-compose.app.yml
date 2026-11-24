@@ -1,0 +1,21 @@
+name: prayer-pwa-app
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: prayer-pwa-app:20261124
+    container_name: ${CONTAINER_NAME:-prayer-pwa-app}
+    restart: unless-stopped
+    # host networking: DATABASE_URL (localhost:5432) works unchanged; listens directly on host port.
+    network_mode: host
+    env_file:
+      - /home/blackhawk/prayer-pwa/.env.local
+    environment:
+      PORT: ${APP_PORT:-3000}
+      HOSTNAME: ${APP_HOST:-0.0.0.0}
+      NODE_ENV: production
+      CREDENTIALS_DIRECTORY: /run/appcreds
+    volumes:
+      - /home/blackhawk/.config/prayer-pwa/notification-scheduler-secret:/run/appcreds/notification-scheduler-secret:ro
